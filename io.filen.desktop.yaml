@@ -47,6 +47,10 @@ modules:
       # Install configuration defaults
       - install -Dm644 filen-directories.conf -t /app/etc/
       
+      # Install checksum reference files
+      - install -Dm644 Filen_linux_amd64.deb.sha256.txt -t /app/etc/checksums/ 2>/dev/null || true
+      - install -Dm644 Filen_linux_arm64.deb.sha256.txt -t /app/etc/checksums/ 2>/dev/null || true
+      
       # Install XDG Desktop entry and AppStream metadata
       - install -Dm644 io.filen.desktop.desktop -t /app/share/applications/
       - install -Dm644 io.filen.desktop.metainfo.xml -t /app/share/metainfo/
@@ -71,7 +75,13 @@ modules:
           # Verify deb SHA256 against upstream release hash
           - |
             echo "[apply_extra] Verifying debian package checksum against release hash..."
-            if [ -f Filen_linux_amd64.deb.sha256.txt ]; then
+            if [ -f /app/etc/checksums/Filen_linux_amd64.deb.sha256.txt ]; then
+              EXPECTED_HASH=$(awk '{print $1}' /app/etc/checksums/Filen_linux_amd64.deb.sha256.txt)
+              echo "${EXPECTED_HASH}  filen.deb" | sha256sum -c -
+            elif [ -f /app/etc/checksums/Filen_linux_arm64.deb.sha256.txt ]; then
+              EXPECTED_HASH=$(awk '{print $1}' /app/etc/checksums/Filen_linux_arm64.deb.sha256.txt)
+              echo "${EXPECTED_HASH}  filen.deb" | sha256sum -c -
+            elif [ -f Filen_linux_amd64.deb.sha256.txt ]; then
               EXPECTED_HASH=$(awk '{print $1}' Filen_linux_amd64.deb.sha256.txt)
               echo "${EXPECTED_HASH}  filen.deb" | sha256sum -c -
             elif [ -f Filen_linux_arm64.deb.sha256.txt ]; then

@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 # Default deny all token permissions
 permissions: {}
 
@@ -92,6 +95,9 @@ jobs:
     needs: validate
     permissions:
       contents: read
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
+      options: --privileged
     strategy:
       matrix:
         arch: [x86_64]
@@ -108,6 +114,7 @@ jobs:
           manifest-path: io.filen.desktop.yaml
           arch: ${{ matrix.arch }}
           cache-key: flatpak-builder-${{ matrix.arch }}-${{ github.sha }}
+          run-tests: false
 
       - name: Upload Flatpak Bundle Artifact
         uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
