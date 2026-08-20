@@ -66,6 +66,38 @@ To grant access to directories on external drives or secondary mounts, use Flatp
 flatpak override --user --filesystem=/media/storage io.filen.desktop
 ```
 
+## Installation and updates
+
+### Install from the repository (automatic updates)
+
+Add the repository:
+
+```bash
+flatpak remote-add --if-not-exists --user filen https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakrepo
+```
+
+Install the application:
+
+```bash
+flatpak install --user filen io.filen.desktop
+```
+
+Update at any time:
+
+```bash
+flatpak update
+```
+
+### Install from standalone `.flatpak` bundle
+
+Download `io.filen.desktop-x86_64.flatpak` from the latest release or artifact, then install:
+
+```bash
+flatpak install --user io.filen.desktop-x86_64.flatpak
+```
+
+Bundles built by this repository embed the repository origin URL automatically, enabling future updates via `flatpak update`.
+
 ## Build and install locally
 
 Build and install the application:

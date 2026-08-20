@@ -113,15 +113,29 @@ jobs:
             build-dir \
             io.filen.desktop.yaml
 
+          echo "=== Updating OSTree Static Repository & Deltas ==="
+          flatpak build-update-repo --generate-static-deltas repo
+
           echo "=== Creating Single-File Distribution Bundle ==="
           flatpak build-bundle repo "io.filen.desktop-${{ matrix.arch }}.flatpak" io.filen.desktop \
-            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+            --repo-url=https://anthony1x6000.github.io/io.filen.desktop/repo
+
+          echo "=== Compressing OSTree Repo for Deployment ==="
+          tar -czf repo.tar.gz repo
 
       - name: Upload Flatpak Bundle Artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: io.filen.desktop-${{ matrix.arch }}.flatpak
           path: io.filen.desktop-${{ matrix.arch }}.flatpak
+          retention-days: 14
+
+      - name: Upload OSTree Repository Archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: ostree-repo-${{ matrix.arch }}
+          path: repo.tar.gz
           retention-days: 14
 
   test-install:
@@ -165,3 +179,61 @@ jobs:
           flatpak run --command=true io.filen.desktop
 
           echo "✓ Flatpak artifact verified and installed successfully!"
+
+  deploy-pages:
+    name: Deploy OSTree Repository to GitHub Pages
+    runs-on: ubuntu-latest
+    needs: [build, test-install]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Download OSTree Repository Archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ostree-repo-x86_64
+
+      - name: Deploy to gh-pages Branch
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "=== Extracting OSTree Repository ==="
+          tar -xzf repo.tar.gz
+
+          echo "=== Configuring Git Author Identity ==="
+          git config user.name "Anthony"
+          git config user.email "33004321+anthony1x6000@users.noreply.github.com"
+
+          TEMP_DEPLOY=$(mktemp -d)
+          cp -r repo "$TEMP_DEPLOY/"
+          cp io.filen.desktop.flatpakrepo "$TEMP_DEPLOY/"
+          cp index.html "$TEMP_DEPLOY/"
+
+          if git ls-remote --exit-code --heads origin gh-pages; then
+            echo "Fetching existing gh-pages branch..."
+            git fetch origin gh-pages:gh-pages
+            git checkout gh-pages
+          else
+            echo "Creating orphan gh-pages branch..."
+            git checkout --orphan gh-pages
+            git rm -rf .
+          fi
+
+          rm -rf repo io.filen.desktop.flatpakrepo index.html
+          cp -r "$TEMP_DEPLOY"/* .
+          rm -rf "$TEMP_DEPLOY"
+
+          git add repo io.filen.desktop.flatpakrepo index.html
+          
+          if git diff --staged --quiet; then
+            echo "No changes in OSTree repository."
+          else
+            git commit -m "deploy: update flatpak ostree repository [skip ci]" \
+              -m "Co-authored-by: Antigravity Assistant <assistant@deepmind.google>"
+            git push origin gh-pages
+            echo "✓ OSTree repository successfully published to GitHub Pages!"
+          fi
