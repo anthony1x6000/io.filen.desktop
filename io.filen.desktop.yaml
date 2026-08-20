@@ -64,7 +64,6 @@ modules:
       - install -Dm644 128x128.png /app/share/icons/hicolor/128x128/apps/io.filen.desktop.png
       - install -Dm644 256x256.png /app/share/icons/hicolor/256x256/apps/io.filen.desktop.png
       - install -Dm644 512x512.png /app/share/icons/hicolor/512x512/apps/io.filen.desktop.png
-      - install -Dm644 1024x1024.png /app/share/icons/hicolor/1024x1024/apps/io.filen.desktop.png
       
       - mkdir -p /app/main /app/extra
 
@@ -137,9 +136,6 @@ modules:
 
       - type: file
         path: icons/512x512.png
-
-      - type: file
-        path: icons/1024x1024.png
 
       # Upstream SHA256 checksum files
       - type: file
