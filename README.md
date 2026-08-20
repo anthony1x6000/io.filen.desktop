@@ -137,7 +137,7 @@ All third-party action wrappers were removed in favor of native container execut
 
 ## Sandbox details
 
-* Packaging method: Repackages the official upstream `.deb` release using `apply_extra` and verifies the package hash during build.
+* Packaging method: Repackages the official upstream `.deb` release during build time with verified cryptographic checksums, producing fully standalone Flatpak bundles.
 * Display: Uses Wayland with fallback to X11.
 * Credentials: Uses the Freedesktop Secret Service (`org.freedesktop.secrets`) and KDE KWallet for session tokens.
 * Updates: Disables the in-app electron-updater so Flatpak manages updates.
