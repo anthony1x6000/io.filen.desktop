@@ -91,6 +91,48 @@ flatpak build-bundle repo io.filen.desktop.flatpak io.filen.desktop --runtime-re
 
 * `.github/workflows/build.yml`: Verifies the upstream deb SHA256 hashes against `io.filen.desktop.yaml`, checks AppStream metadata, and builds the Flatpak package on pull requests and pushes.
 * `.github/workflows/release.yml`: Builds and uploads a `.flatpak` bundle to GitHub Releases when you push a version tag (`v*`).
+* `.github/workflows/dependabot-auto-merge.yml`: Automatically merges Dependabot dependency updates after CI tests pass.
+
+## Dependencies
+
+This repository uses the following runtime, build, and CI dependencies:
+
+### Flatpak runtime and base dependencies
+
+| Component | Identifier | Version / Branch | Purpose |
+| :--- | :--- | :--- | :--- |
+| Runtime | `org.freedesktop.Platform` | `24.08` | Base application execution environment |
+| SDK | `org.freedesktop.Sdk` | `24.08` | Build-time compilation tools and headers |
+| BaseApp | `org.electronjs.Electron2.BaseApp` | `24.08` | Electron sandbox supervisor and Wayland integration |
+
+### Host and validation tools
+
+| Package | Minimum version | Purpose |
+| :--- | :--- | :--- |
+| `flatpak` | 1.12.0 | Flatpak application manager and runtime engine |
+| `flatpak-builder` | 1.2.0 | Manifest build orchestrator |
+| `desktop-file-utils` | 0.26 | Desktop entry specification validator |
+| `appstream` / `appstream-util` | 0.16 | AppStream metainfo XML validator |
+| `python3` | 3.8+ | Standard library only, used to verify upstream release checksums in CI |
+
+### CI container and GitHub Actions dependencies
+
+All third-party action wrappers were removed in favor of native container execution. Remaining actions are first-party and pinned by immutable commit SHA:
+
+| Dependency | Type | Version / Reference | Immutable commit SHA | Purpose |
+| :--- | :--- | :--- | :--- | :--- |
+| `flatpak-github-actions:gnome-48` | Container image | `gnome-48` | `ghcr.io/flathub-infra/flatpak-github-actions:gnome-48` | Official Flathub build container |
+| `actions/checkout` | GitHub Action | `v7.0.1` | `3d3c42e5aac5ba805825da76410c181273ba90b1` | Repository checkout |
+| `actions/upload-artifact` | GitHub Action | `v7.0.1` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Upload build bundles in CI |
+| `dependabot/fetch-metadata` | GitHub Action | `v3.1.0` | `25dd0e34f4fe68f24cc83900b1fe3fe149efef98` | Dependabot PR metadata extraction |
+| `gh` | CLI tool | Pre-installed | Native Go binary | GitHub release publishing |
+
+### Upstream package binaries
+
+| Package | Architecture | Source URL | SHA256 checksum |
+| :--- | :--- | :--- | :--- |
+| `Filen_linux_amd64.deb` | `x86_64` | `FilenCloudDienste/filen-desktop` | `2c22f9ab466be753824a784e9c63e7d4b48a7e25f1d641ba6304415c35c6ce04` |
+| `Filen_linux_arm64.deb` | `aarch64` | `FilenCloudDienste/filen-desktop` | `4a5feed506939d8c9b841473920514b9d900d66c743f43a7a0e984fcc41029d9` |
 
 ## Sandbox details
 
