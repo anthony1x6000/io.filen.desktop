@@ -1,0 +1,127 @@
+name: Auto Update & Release
+
+on:
+  schedule:
+    - cron: '0 */6 * * *' # Check every 6 hours
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  update-and-release:
+    name: Update, Build & Release
+    runs-on: ubuntu-latest
+    container:
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
+      options: --privileged
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install flatpak-external-data-checker
+        shell: bash
+        run: |
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y flathub org.flathub.flatpak-external-data-checker
+
+      - name: Check for Updates & Update Manifest
+        id: update
+        shell: bash
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Make sure the current directory is readable by flatpak
+          flatpak run --env=GITHUB_TOKEN=$GITHUB_TOKEN --filesystem=$(pwd) org.flathub.flatpak-external-data-checker --update io.filen.desktop.yaml
+          
+          if [[ -n "$(git status --porcelain io.filen.desktop.yaml)" ]]; then
+            echo "has_update=true" >> "$GITHUB_OUTPUT"
+            
+            # Extract new version from the URL in the yaml
+            VERSION=$(grep -oP 'releases/download/v\K[^/]+' io.filen.desktop.yaml | head -n 1)
+            echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+            echo "Found new version: $VERSION"
+          else
+            echo "has_update=false" >> "$GITHUB_OUTPUT"
+            echo "No updates found."
+          fi
+
+      - name: Update metainfo.xml (Optional)
+        if: steps.update.outputs.has_update == 'true'
+        shell: bash
+        env:
+          VERSION: ${{ steps.update.outputs.version }}
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          python3 -c "
+import xml.etree.ElementTree as ET
+import sys
+tree = ET.parse('io.filen.desktop.metainfo.xml')
+root = tree.getroot()
+releases = root.find('releases')
+if releases is not None:
+    for r in releases.findall('release'):
+        if r.get('version') == '$VERSION':
+            sys.exit(0)
+    
+    new_release = ET.Element('release', {'version': '$VERSION', 'date': '$DATE'})
+    desc = ET.SubElement(new_release, 'description')
+    p = ET.SubElement(desc, 'p')
+    p.text = 'Automatic update to version $VERSION'
+    
+    releases.insert(0, new_release)
+    ET.indent(tree, space='  ', level=0)
+    tree.write('io.filen.desktop.metainfo.xml', encoding='utf-8', xml_declaration=True)
+"
+
+      - name: Build Flatpak
+        if: steps.update.outputs.has_update == 'true'
+        shell: bash
+        run: |
+          flatpak-builder \
+            --repo=repo \
+            --force-clean \
+            --install-deps-from=flathub \
+            --arch=x86_64 \
+            --default-branch=main \
+            --disable-rofiles-fuse \
+            build-dir \
+            io.filen.desktop.yaml
+
+          flatpak build-bundle repo io.filen.desktop.flatpak io.filen.desktop \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Commit, Tag & Release
+        if: steps.update.outputs.has_update == 'true'
+        shell: bash
+        env:
+          VERSION: ${{ steps.update.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add io.filen.desktop.yaml io.filen.desktop.metainfo.xml
+          
+          if [[ -z "$(git status --porcelain)" ]]; then
+            echo "Nothing to commit."
+            exit 0
+          fi
+          
+          git commit -m "chore(release): auto-update to v$VERSION"
+          
+          # Push to the branch (main)
+          git push origin HEAD:main
+          
+          # Create and push the tag
+          TAG="v$VERSION"
+          git tag "$TAG"
+          git push origin "$TAG"
+          
+          # Create the GitHub Release and attach the flatpak
+          gh release create "$TAG" io.filen.desktop.flatpak \
+            --title "$TAG" \
+            --generate-notes
