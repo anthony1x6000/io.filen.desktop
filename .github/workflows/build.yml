@@ -85,10 +85,6 @@ jobs:
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
       options: --privileged
-    strategy:
-      matrix:
-        arch: [x86_64]
-      fail-fast: false
 
     steps:
       - name: Checkout Repository
@@ -107,7 +103,7 @@ jobs:
             --repo=repo \
             --force-clean \
             --install-deps-from=flathub \
-            --arch="${{ matrix.arch }}" \
+            --arch=x86_64 \
             --default-branch=master \
             --disable-rofiles-fuse \
             build-dir \
@@ -117,7 +113,7 @@ jobs:
           flatpak build-update-repo --generate-static-deltas repo
 
           echo "=== Creating Single-File Distribution Bundle ==="
-          flatpak build-bundle repo "io.filen.desktop-${{ matrix.arch }}.flatpak" io.filen.desktop \
+          flatpak build-bundle repo io.filen.desktop-x86_64.flatpak io.filen.desktop \
             --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
             --repo-url=https://anthony1x6000.github.io/io.filen.desktop/repo
 
@@ -127,14 +123,14 @@ jobs:
       - name: Upload Flatpak Bundle Artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: io.filen.desktop-${{ matrix.arch }}.flatpak
-          path: io.filen.desktop-${{ matrix.arch }}.flatpak
+          name: io.filen.desktop-x86_64.flatpak
+          path: io.filen.desktop-x86_64.flatpak
           retention-days: 14
 
       - name: Upload OSTree Repository Archive
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ostree-repo-${{ matrix.arch }}
+          name: ostree-repo-x86_64
           path: repo.tar.gz
           retention-days: 14
 
@@ -147,16 +143,12 @@ jobs:
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
       options: --privileged
-    strategy:
-      matrix:
-        arch: [x86_64]
-      fail-fast: false
 
     steps:
       - name: Download Flatpak Bundle Artifact
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: io.filen.desktop-${{ matrix.arch }}.flatpak
+          name: io.filen.desktop-x86_64.flatpak
 
       - name: Install, Launch & Update Bundle
         shell: bash
@@ -167,7 +159,7 @@ jobs:
           flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
           echo "=== Installing Flatpak Bundle ==="
-          flatpak install -y --user --noninteractive "io.filen.desktop-${{ matrix.arch }}.flatpak"
+          flatpak install -y --user --noninteractive io.filen.desktop-x86_64.flatpak
 
           echo "=== Verifying Installation Metadata ==="
           flatpak info io.filen.desktop
@@ -198,16 +190,12 @@ jobs:
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
       options: --privileged
-    strategy:
-      matrix:
-        arch: [x86_64]
-      fail-fast: false
 
     steps:
       - name: Download OSTree Repository Archive
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: ostree-repo-${{ matrix.arch }}
+          name: ostree-repo-x86_64
 
       - name: Add Repository, Install, Launch & Update
         shell: bash
@@ -238,6 +226,7 @@ jobs:
           echo "=== Testing Incremental Flatpak Update from Repository ==="
           flatpak update -y --user --noninteractive io.filen.desktop
 
+          echo "=== Verifying Clean Uninstallation ==="
           echo "=== Verifying Clean Uninstallation ==="
           flatpak uninstall -y --user --noninteractive io.filen.desktop
           flatpak remote-delete --user filen-local
