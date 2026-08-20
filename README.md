@@ -142,3 +142,8 @@ All third-party action wrappers were removed in favor of native container execut
 * Credentials: Uses the Freedesktop Secret Service (`org.freedesktop.secrets`) and KDE KWallet for session tokens.
 * Updates: Disables the in-app electron-updater so Flatpak manages updates.
 * Cloud mounts: Uses the embedded rclone binary for local WebDAV and S3 servers.
+
+## License
+
+* Filen Desktop application and launcher scripts: [GNU Affero General Public License v3.0](LICENSE) (`AGPL-3.0-only`).
+* Flatpak packaging recipes, configurations, and AppStream metadata: Creative Commons Zero 1.0 Universal (`CC0-1.0`).

@@ -1,4 +1,6 @@
 #!/bin/bash
+# SPDX-License-Identifier: AGPL-3.0-only
+# Copyright (c) 2026 Filen Flatpak Packaging Contributors
 set -e
 
 CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/filen"
