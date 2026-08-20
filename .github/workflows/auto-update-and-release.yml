@@ -54,27 +54,32 @@ jobs:
         env:
           VERSION: ${{ steps.update.outputs.version }}
         run: |
+          set -euo pipefail
           DATE=$(date +%Y-%m-%d)
-          python3 -c "
-import xml.etree.ElementTree as ET
-import sys
-tree = ET.parse('io.filen.desktop.metainfo.xml')
-root = tree.getroot()
-releases = root.find('releases')
-if releases is not None:
-    for r in releases.findall('release'):
-        if r.get('version') == '$VERSION':
-            sys.exit(0)
-    
-    new_release = ET.Element('release', {'version': '$VERSION', 'date': '$DATE'})
-    desc = ET.SubElement(new_release, 'description')
-    p = ET.SubElement(desc, 'p')
-    p.text = 'Automatic update to version $VERSION'
-    
-    releases.insert(0, new_release)
-    ET.indent(tree, space='  ', level=0)
-    tree.write('io.filen.desktop.metainfo.xml', encoding='utf-8', xml_declaration=True)
-"
+          python3 - << EOF
+          import xml.etree.ElementTree as ET
+          import sys
+
+          version = "${VERSION}"
+          date = "${DATE}"
+
+          tree = ET.parse('io.filen.desktop.metainfo.xml')
+          root = tree.getroot()
+          releases = root.find('releases')
+          if releases is not None:
+              for r in releases.findall('release'):
+                  if r.get('version') == version:
+                      sys.exit(0)
+              
+              new_release = ET.Element('release', {'version': version, 'date': date})
+              desc = ET.SubElement(new_release, 'description')
+              p = ET.SubElement(desc, 'p')
+              p.text = f'Automatic update to version {version}'
+              
+              releases.insert(0, new_release)
+              ET.indent(tree, space='  ', level=0)
+              tree.write('io.filen.desktop.metainfo.xml', encoding='utf-8', xml_declaration=True)
+          EOF
 
       - name: Build Flatpak
         if: steps.update.outputs.has_update == 'true'
