@@ -85,9 +85,16 @@ jobs:
         if: steps.update.outputs.has_update == 'true'
         shell: bash
         run: |
+          set -euo pipefail
+          mkdir -p repo
+          ostree init --mode=archive --repo=repo
+          ostree config --repo=repo set "core.min-free-space-percent" "0"
+          ostree config --repo=repo set "core.min-free-space-size" "0"
+
           flatpak-builder \
             --repo=repo \
             --force-clean \
+            --disable-cache \
             --install-deps-from=flathub \
             --arch=x86_64 \
             --default-branch=master \

@@ -95,13 +95,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "=== Setting up Flathub remote ==="
-          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+          echo "=== Setting up OSTree Repository ==="
+          mkdir -p repo
+          ostree init --mode=archive --repo=repo
+          ostree config --repo=repo set "core.min-free-space-percent" "0"
+          ostree config --repo=repo set "core.min-free-space-size" "0"
 
           echo "=== Building Flatpak Application ==="
           flatpak-builder \
             --repo=repo \
             --force-clean \
+            --disable-cache \
             --install-deps-from=flathub \
             --arch=x86_64 \
             --default-branch=master \
@@ -226,7 +230,6 @@ jobs:
           echo "=== Testing Incremental Flatpak Update from Repository ==="
           flatpak update -y --user --noninteractive io.filen.desktop
 
-          echo "=== Verifying Clean Uninstallation ==="
           echo "=== Verifying Clean Uninstallation ==="
           flatpak uninstall -y --user --noninteractive io.filen.desktop
           flatpak remote-delete --user filen-local
