@@ -121,9 +121,20 @@ flatpak build-bundle repo io.filen.desktop.flatpak io.filen.desktop --runtime-re
 
 ## GitHub Actions workflows
 
-* `.github/workflows/build.yml`: Verifies the upstream deb SHA256 hashes against `io.filen.desktop.yaml`, checks AppStream metadata, and builds the Flatpak package on pull requests and pushes.
+* `.github/workflows/build.yml`: Verifies the upstream deb SHA256 hashes against `io.filen.desktop.yaml`, checks AppStream metadata, builds the Flatpak package, verifies local installation, and deploys the OSTree repository to GitHub Pages on pushes to `main`.
 * `.github/workflows/release.yml`: Builds and uploads a `.flatpak` bundle to GitHub Releases when you push a version tag (`v*`).
+* `.github/workflows/auto-update-and-release.yml`: Checks for new upstream releases from Filen every 6 hours via `flatpak-external-data-checker`, bumps version numbers and checksums, and tags new releases.
 * `.github/workflows/dependabot-auto-merge.yml`: Automatically merges Dependabot dependency updates after CI tests pass.
+
+## GitHub Pages repository hosting
+
+To enable automatic updates for Flatpak users via GitHub Pages:
+
+1. Open repository settings at `Settings -> Pages` (or visit `https://github.com/anthony1x6000/io.filen.desktop/settings/pages`).
+2. Under **Build and deployment**, set **Source** to **Deploy from a branch**.
+3. Select branch **`gh-pages`** and folder **`/ (root)`**, then click **Save**.
+
+Once configured, each commit pushed to `main` updates the static OSTree repository at `https://anthony1x6000.github.io/io.filen.desktop/repo/`.
 
 ## Dependencies
 
