@@ -22,19 +22,36 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Build Flatpak Package
-        uses: flatpak/flatpak-github-actions/flatpak-builder@fc80c13788c1ba0f45add99b19cf26b616ccab4f # v6.4
-        with:
-          bundle: io.filen.desktop.flatpak
-          manifest-path: io.filen.desktop.yaml
-          arch: x86_64
-          run-tests: false
+      - name: Build Flatpak & Create Bundle
+        shell: bash
+        run: |
+          set -euo pipefail
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
-        if: startsWith(github.ref, 'refs/tags/')
-        with:
-          files: io.filen.desktop.flatpak
-          draft: false
-          prerelease: false
-          generate_release_notes: true
+          echo "=== Setting up Flathub remote ==="
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+          echo "=== Building Flatpak Application ==="
+          flatpak-builder \
+            --repo=repo \
+            --force-clean \
+            --install-deps-from=flathub \
+            --arch=x86_64 \
+            --default-branch=master \
+            --disable-rofiles-fuse \
+            build-dir \
+            io.filen.desktop.yaml
+
+          echo "=== Creating Single-File Distribution Bundle ==="
+          flatpak build-bundle repo io.filen.desktop.flatpak io.filen.desktop \
+            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Publish GitHub Release
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release create "$TAG" io.filen.desktop.flatpak \
+            --title "$TAG" \
+            --generate-notes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
