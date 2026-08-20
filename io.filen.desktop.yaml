@@ -1,0 +1,150 @@
+app-id: io.filen.desktop
+runtime: org.freedesktop.Platform
+runtime-version: '24.08'
+sdk: org.freedesktop.Sdk
+base: org.electronjs.Electron2.BaseApp
+base-version: '24.08'
+command: filen
+separate-locales: false
+
+finish-args:
+  # Network access for cloud synchronization, WebDAV, S3, and API communication
+  - --share=network
+  # IPC socket for X11/Wayland/Chromium communication
+  - --share=ipc
+  # Display servers (Wayland with fallback to X11)
+  - --socket=wayland
+  - --socket=fallback-x11
+  # Audio support
+  - --socket=pulseaudio
+  # Hardware acceleration
+  - --device=dri
+  # Filesystem access for user folder synchronization across local storage
+  - --filesystem=host
+  # Credential storage via Freedesktop Secret Service & KDE KWallet
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.kde.kwalletd5
+  - --talk-name=org.kde.kwalletd6
+  # Notifications
+  - --talk-name=org.freedesktop.Notifications
+  # System tray & Unity progress bar / badge integration
+  - --talk-name=com.canonical.AppMenu.Registrar
+  - --talk-name=com.canonical.AppMenu.Registrar.*
+  - --talk-name=com.canonical.Unity
+  # Wayland cursor scaling & Trash handling
+  - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
+  - --env=ELECTRON_TRASH=gio
+
+modules:
+  - name: filen
+    buildsystem: simple
+    build-commands:
+      # Install launcher and helper binaries
+      - install -Dm755 filen.sh /app/bin/filen
+      - install -Dm755 apply_extra /app/bin/apply_extra
+      - cp /usr/bin/ar /app/bin/
+      
+      # Install configuration defaults
+      - install -Dm644 filen-directories.conf -t /app/etc/
+      
+      # Install XDG Desktop entry and AppStream metadata
+      - install -Dm644 io.filen.desktop.desktop -t /app/share/applications/
+      - install -Dm644 io.filen.desktop.metainfo.xml -t /app/share/metainfo/
+      
+      # Install application icons
+      - install -Dm644 icons/16x16.png /app/share/icons/hicolor/16x16/apps/io.filen.desktop.png
+      - install -Dm644 icons/24x24.png /app/share/icons/hicolor/24x24/apps/io.filen.desktop.png
+      - install -Dm644 icons/32x32.png /app/share/icons/hicolor/32x32/apps/io.filen.desktop.png
+      - install -Dm644 icons/48x48.png /app/share/icons/hicolor/48x48/apps/io.filen.desktop.png
+      - install -Dm644 icons/64x64.png /app/share/icons/hicolor/64x64/apps/io.filen.desktop.png
+      - install -Dm644 icons/128x128.png /app/share/icons/hicolor/128x128/apps/io.filen.desktop.png
+      - install -Dm644 icons/256x256.png /app/share/icons/hicolor/256x256/apps/io.filen.desktop.png
+      - install -Dm644 icons/512x512.png /app/share/icons/hicolor/512x512/apps/io.filen.desktop.png
+      - install -Dm644 icons/1024x1024.png /app/share/icons/hicolor/1024x1024/apps/io.filen.desktop.png
+      
+      - mkdir -p /app/main /app/extra
+
+    sources:
+      - type: script
+        dest-filename: apply_extra
+        commands:
+          - ar x filen.deb
+          - tar xf data.tar.*
+          - |
+            if [ -d opt/Filen ]; then
+              mv opt/Filen/* /app/main/
+            elif [ -d usr/lib/filen ]; then
+              mv usr/lib/filen/* /app/main/
+            elif [ -d opt/filen ]; then
+              mv opt/filen/* /app/main/
+            fi
+          - rm -rf filen.deb control.tar.* data.tar.* debian-binary usr opt
+          - patch-desktop-filename /app/main/resources/app.asar 2>/dev/null || true
+
+      - type: file
+        path: filen.sh
+
+      - type: file
+        path: filen-directories.conf
+
+      - type: file
+        path: io.filen.desktop.desktop
+
+      - type: file
+        path: io.filen.desktop.metainfo.xml
+
+      - type: file
+        path: icons/16x16.png
+
+      - type: file
+        path: icons/24x24.png
+
+      - type: file
+        path: icons/32x32.png
+
+      - type: file
+        path: icons/48x48.png
+
+      - type: file
+        path: icons/64x64.png
+
+      - type: file
+        path: icons/128x128.png
+
+      - type: file
+        path: icons/256x256.png
+
+      - type: file
+        path: icons/512x512.png
+
+      - type: file
+        path: icons/1024x1024.png
+
+      # x86_64 binary release source
+      - type: extra-data
+        filename: filen.deb
+        only-arches: [x86_64]
+        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/filen-desktop-3.0.53-linux-x86_64.deb
+        sha256: 08dd10efab703eb5c67d6052be5791c1d683709b119cbef8fbcf1e75fcb1f092
+        size: 92350848
+        x-checker-data:
+          type: json
+          url: https://api.github.com/repos/FilenCloudDienste/filen-desktop/releases/latest
+          version-query: .tag_name | sub("^v"; "")
+          timestamp-query: .published_at
+          url-query: '"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v" + $version + "/filen-desktop-" + $version + "-linux-x86_64.deb"'
+          is-main-source: true
+
+      # aarch64 binary release source
+      - type: extra-data
+        filename: filen.deb
+        only-arches: [aarch64]
+        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/filen-desktop-3.0.53-linux-arm64.deb
+        sha256: 45781a7ee5fba73b6feac6e2d93e87178c72cfcf78f5f0b4d45d94bc6bb59cba
+        size: 89450124
+        x-checker-data:
+          type: json
+          url: https://api.github.com/repos/FilenCloudDienste/filen-desktop/releases/latest
+          version-query: .tag_name | sub("^v"; "")
+          timestamp-query: .published_at
+          url-query: '"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v" + $version + "/filen-desktop-" + $version + "-linux-arm64.deb"'

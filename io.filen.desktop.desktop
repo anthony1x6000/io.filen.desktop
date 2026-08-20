@@ -1,0 +1,17 @@
+[Desktop Entry]
+Name=Filen
+Comment=Next generation end-to-end encrypted cloud storage
+GenericName=Cloud Storage Client
+Exec=filen %U
+Icon=io.filen.desktop
+Type=Application
+StartupNotify=true
+StartupWMClass=Filen
+Categories=Utility;FileTransfer;Archiving;Network;
+MimeType=x-scheme-handler/filen;
+Keywords=cloud;storage;sync;backup;encryption;filen;
+Actions=open-web;
+
+[Desktop Action open-web]
+Name=Open Web App
+Exec=filen --open-web

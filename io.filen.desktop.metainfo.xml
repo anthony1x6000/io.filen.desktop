@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.filen.desktop</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>AGPL-3.0-only</project_license>
+  <name>Filen</name>
+  <developer id="io.filen">
+    <name>Filen Cloud Dienste UG (haftungsbeschränkt)</name>
+  </developer>
+  <summary>Next generation end-to-end encrypted cloud storage</summary>
+  
+  <url type="homepage">https://filen.io</url>
+  <url type="bugtracker">https://github.com/FilenCloudDienste/filen-desktop/issues</url>
+  <url type="help">https://support.filen.io</url>
+  <url type="vcs-browser">https://github.com/FilenCloudDienste/filen-desktop</url>
+  
+  <description>
+    <p>
+      Filen provides zero-knowledge end-to-end encrypted cloud storage, file synchronization, and backup solutions designed for ultimate privacy and security.
+    </p>
+    <p>Key Features:</p>
+    <ul>
+      <li>Client-side zero-knowledge end-to-end encryption for all files and metadata</li>
+      <li>Two-way and one-way file synchronization with custom local directories</li>
+      <li>Local virtual drive, WebDAV, and S3 local endpoint integration powered by rclone</li>
+      <li>Custom sync intervals and selective synchronization</li>
+      <li>Automatic camera upload and background syncing</li>
+      <li>Version history and file restoration capabilities</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">io.filen.desktop.desktop</launchable>
+  
+  <provides>
+    <binary>filen</binary>
+  </provides>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/FilenCloudDienste/filen-desktop/master/assets/icons/app/linux.png</image>
+      <caption>Filen Desktop Cloud Client</caption>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="3.0.53" date="2026-08-01">
+      <description>
+        <p>Filen Desktop 3.0.53 release with enhanced sync reliability, updated rclone engine, and performance optimizations.</p>
+      </description>
+    </release>
+    <release version="3.0.52" date="2026-07-15">
+      <description>
+        <p>Maintenance release with stability improvements and bug fixes.</p>
+      </description>
+    </release>
+  </releases>
+</component>

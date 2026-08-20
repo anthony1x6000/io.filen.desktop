@@ -1,0 +1,8 @@
+.flatpak-builder/
+build-dir/
+repo/
+*.flatpak
+*.deb
+*.tar.*
+*.log
+.vscode/
