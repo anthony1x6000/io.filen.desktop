@@ -133,7 +133,6 @@ All third-party action wrappers were removed in favor of native container execut
 | Package | Architecture | Source URL | SHA256 checksum |
 | :--- | :--- | :--- | :--- |
 | `Filen_linux_amd64.deb` | `x86_64` | `FilenCloudDienste/filen-desktop` | `2c22f9ab466be753824a784e9c63e7d4b48a7e25f1d641ba6304415c35c6ce04` |
-| `Filen_linux_arm64.deb` | `aarch64` | `FilenCloudDienste/filen-desktop` | `4a5feed506939d8c9b841473920514b9d900d66c743f43a7a0e984fcc41029d9` |
 
 ## Sandbox details
 

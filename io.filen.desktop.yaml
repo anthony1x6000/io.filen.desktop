@@ -124,16 +124,3 @@ modules:
           timestamp-query: .published_at
           url-query: '"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v" + $version + "/Filen_linux_amd64.deb"'
           is-main-source: true
-
-      # aarch64 binary release source (deb)
-      - type: file
-        dest-filename: filen.deb
-        only-arches: [aarch64]
-        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/Filen_linux_arm64.deb
-        sha256: 4a5feed506939d8c9b841473920514b9d900d66c743f43a7a0e984fcc41029d9
-        x-checker-data:
-          type: json
-          url: https://api.github.com/repos/FilenCloudDienste/filen-desktop/releases/latest
-          version-query: .tag_name | sub("^v"; "")
-          timestamp-query: .published_at
-          url-query: '"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v" + $version + "/Filen_linux_arm64.deb"'
