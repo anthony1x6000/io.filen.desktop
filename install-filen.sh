@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: CC0-1.0
+# SPDX-License-Identifier: AGPL-3.0-only
 set -euo pipefail
 
 # Extract Debian package contents
