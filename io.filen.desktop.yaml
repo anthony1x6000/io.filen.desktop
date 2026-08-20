@@ -7,6 +7,9 @@ base: org.electronjs.Electron2.BaseApp
 base-version: '24.08'
 command: filen
 separate-locales: false
+build-options:
+  no-debuginfo: true
+  strip: true
 
 finish-args:
   # Network access for cloud synchronization, WebDAV, S3, and API communication

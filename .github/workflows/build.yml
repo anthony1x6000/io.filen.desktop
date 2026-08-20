@@ -121,8 +121,8 @@ jobs:
             --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
             --repo-url=https://anthony1x6000.github.io/io.filen.desktop/repo
 
-          echo "=== Compressing OSTree Repo for Deployment ==="
-          tar -czf repo.tar.gz repo
+          echo "=== Compressing OSTree Repo for Deployment (Max Compression) ==="
+          GZIP=-9 tar -czf repo.tar.gz repo
 
       - name: Upload Flatpak Bundle Artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
