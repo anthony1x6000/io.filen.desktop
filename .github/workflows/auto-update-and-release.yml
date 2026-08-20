@@ -89,7 +89,7 @@ jobs:
           mkdir -p repo
           ostree init --mode=archive --repo=repo
           ostree config --repo=repo set "core.min-free-space-percent" "0"
-          ostree config --repo=repo set "core.min-free-space-size" "0"
+          ostree config --repo=repo set "core.min-free-space-size" "0MB"
 
           flatpak-builder \
             --repo=repo \

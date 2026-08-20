@@ -27,11 +27,14 @@ jobs:
         run: |
           set -euo pipefail
 
+          echo "=== Setting up Flathub remote ==="
+          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
           echo "=== Setting up OSTree Repository ==="
           mkdir -p repo
           ostree init --mode=archive --repo=repo
           ostree config --repo=repo set "core.min-free-space-percent" "0"
-          ostree config --repo=repo set "core.min-free-space-size" "0"
+          ostree config --repo=repo set "core.min-free-space-size" "0MB"
 
           echo "=== Building Flatpak Application ==="
           flatpak-builder \
