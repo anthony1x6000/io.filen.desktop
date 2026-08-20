@@ -21,60 +21,15 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install Validation Tools
-        shell: bash
         run: |
-          set -euo pipefail
           sudo apt-get update
           sudo apt-get install -y appstream desktop-file-utils appstream-util python3
 
-      - name: Validate Desktop File
-        shell: bash
-        run: |
-          set -euo pipefail
-          desktop-file-validate io.filen.desktop.desktop
-
-      - name: Validate AppStream Metainfo
-        shell: bash
-        run: |
-          set -euo pipefail
-          appstream-util validate-relax --nonet io.filen.desktop.metainfo.xml
-          appstreamcli validate --no-net io.filen.desktop.metainfo.xml
+      - name: Validate Metadata
+        run: bash scripts/validate-metadata.sh
 
       - name: Verify Upstream Release Checksums
-        shell: bash
-        run: |
-          set -euo pipefail
-          python3 - << 'EOF'
-          import re, urllib.request, sys
-
-          with open("io.filen.desktop.yaml", "r", encoding="utf-8") as f:
-              manifest = f.read()
-
-          # Match the exact sha256 within the deb release source
-          amd64_manifest = re.search(r"Filen_linux_amd64\.deb\n\s+sha256:\s+([0-9a-fA-F]{64})", manifest)
-
-          if not amd64_manifest:
-              print("::error::Could not extract deb sha256 checksum from manifest!")
-              sys.exit(1)
-
-          manifest_amd64 = amd64_manifest.group(1).lower()
-
-          version_match = re.search(r"v(\d+\.\d+\.\d+)/Filen_linux_amd64\.deb", manifest)
-          version = version_match.group(1) if version_match else "3.0.53"
-
-          print(f"=== Verifying Release v{version} Hashes ===")
-          amd64_url = f"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v{version}/Filen_linux_amd64.deb.sha256.txt"
-
-          upstream_amd64 = urllib.request.urlopen(amd64_url, timeout=30).read().decode().strip().split()[0].lower()
-
-          print(f"AMD64 Manifest Hash: {manifest_amd64}")
-          print(f"AMD64 Upstream Hash: {upstream_amd64}")
-          if manifest_amd64 != upstream_amd64:
-              print(f"::error::AMD64 hash mismatch: expected {upstream_amd64}, found {manifest_amd64}")
-              sys.exit(1)
-
-          print("✓ Release checksum verified successfully!")
-          EOF
+        run: python3 scripts/verify-checksums.py
 
   build:
     name: Build Flatpak
@@ -91,45 +46,10 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Trust Workspace Directory
-        shell: bash
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Build Flatpak & Create Bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=== Setting up Flathub remote ==="
-          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-          echo "=== Setting up OSTree Repository ==="
-          mkdir -p repo
-          ostree init --mode=archive --repo=repo
-          ostree config --repo=repo set "core.min-free-space-percent" "0"
-          ostree config --repo=repo set "core.min-free-space-size" "0MB"
-
-          echo "=== Building Flatpak Application ==="
-          flatpak-builder \
-            --repo=repo \
-            --force-clean \
-            --disable-cache \
-            --install-deps-from=flathub \
-            --arch=x86_64 \
-            --default-branch=master \
-            --disable-rofiles-fuse \
-            build-dir \
-            io.filen.desktop.yaml
-
-          echo "=== Updating OSTree Static Repository & Deltas ==="
-          flatpak build-update-repo --generate-static-deltas repo
-
-          echo "=== Creating Single-File Distribution Bundle ==="
-          flatpak build-bundle repo io.filen.desktop-x86_64.flatpak io.filen.desktop \
-            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            --repo-url=https://anthony1x6000.github.io/io.filen.desktop/repo
-
-          echo "=== Compressing OSTree Repo for Deployment (Max Compression) ==="
-          GZIP=-9 tar -czf repo.tar.gz repo
+        run: bash scripts/build-flatpak.sh
 
       - name: Upload Flatpak Bundle Artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -162,35 +82,7 @@ jobs:
           name: io.filen.desktop-x86_64.flatpak
 
       - name: Install, Launch & Update Bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=== Setting up Flathub remote ==="
-          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-          echo "=== Installing Flatpak Bundle ==="
-          flatpak install -y --user --noninteractive io.filen.desktop-x86_64.flatpak
-
-          echo "=== Verifying Installation Metadata ==="
-          flatpak info io.filen.desktop
-
-          echo "=== Verifying Application Permissions ==="
-          flatpak info --show-permissions io.filen.desktop
-
-          echo "=== Verifying Application Launch in Sandbox ==="
-          flatpak run --command=true io.filen.desktop
-
-          echo "=== Verifying Configured Remotes (Checking Embedded Origin) ==="
-          flatpak remotes -d
-
-          echo "=== Testing Flatpak Update Mechanism ==="
-          flatpak update -y --user --noninteractive io.filen.desktop || true
-
-          echo "=== Verifying Clean Uninstallation ==="
-          flatpak uninstall -y --user --noninteractive io.filen.desktop
-
-          echo "✓ Standalone bundle installation, execution, and update flow verified!"
+        run: bash scripts/test-bundle-install.sh io.filen.desktop-x86_64.flatpak
 
   test-repo-install:
     name: Test OSTree Repository Install & Update
@@ -209,39 +101,7 @@ jobs:
           name: ostree-repo-x86_64
 
       - name: Add Repository, Install, Launch & Update
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=== Setting up Flathub runtime remote ==="
-          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-          echo "=== Extracting OSTree Repository Archive ==="
-          tar -xzf repo.tar.gz
-
-          echo "=== Adding Local OSTree Repository Remote ==="
-          flatpak remote-add --if-not-exists --user --no-gpg-verify filen-local "file://$(pwd)/repo"
-
-          echo "=== Installing Application from Local Repository ==="
-          flatpak install -y --user --noninteractive filen-local io.filen.desktop
-
-          echo "=== Verifying Installation Metadata ==="
-          flatpak info io.filen.desktop
-
-          echo "=== Verifying Application Permissions ==="
-          flatpak info --show-permissions io.filen.desktop
-
-          echo "=== Verifying Application Launch in Sandbox ==="
-          flatpak run --command=true io.filen.desktop
-
-          echo "=== Testing Incremental Flatpak Update from Repository ==="
-          flatpak update -y --user --noninteractive io.filen.desktop
-
-          echo "=== Verifying Clean Uninstallation ==="
-          flatpak uninstall -y --user --noninteractive io.filen.desktop
-          flatpak remote-delete --user filen-local
-
-          echo "✓ OSTree repository installation, execution, and update flow verified!"
+        run: bash scripts/test-repo-install.sh
 
   deploy-pages:
     name: Deploy OSTree Repository to GitHub Pages
@@ -262,55 +122,7 @@ jobs:
           name: ostree-repo-x86_64
 
       - name: Prepare GitHub Pages Static Site
-        shell: bash
-        run: |
-          set -euo pipefail
-          mkdir -p _site
-          tar -xzf repo.tar.gz -C _site/
-          
-          # Web landing page
-          cat << 'EOF' > _site/index.html
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Filen Desktop Flatpak Repository</title>
-          </head>
-          <body>
-            <h1>Filen Desktop Flatpak Repository</h1>
-            <p>Automated Flatpak repository hosting builds of the Filen desktop client.</p>
-
-            <h2>1. Add the repository</h2>
-            <p>Add this repository to your local Flatpak installation:</p>
-            <pre><code>flatpak remote-add --if-not-exists --user filen https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakrepo</code></pre>
-
-            <h2>2. Install Filen Desktop</h2>
-            <p>Install the application from the repository:</p>
-            <pre><code>flatpak install --user filen io.filen.desktop</code></pre>
-
-            <h2>3. Automatic updates</h2>
-            <p>Once installed, update Filen Desktop with your other Flatpak packages at any time:</p>
-            <pre><code>flatpak update</code></pre>
-
-            <hr>
-            <p>Source code and build workflows available on <a href="https://github.com/anthony1x6000/io.filen.desktop">GitHub</a>.</p>
-          </body>
-          </html>
-          EOF
-
-          # Repository configuration file
-          cat << 'EOF' > _site/io.filen.desktop.flatpakrepo
-          [Flatpak Repo]
-          Title=Filen Desktop
-          Url=https://anthony1x6000.github.io/io.filen.desktop/repo/
-          Homepage=https://github.com/anthony1x6000/io.filen.desktop
-          Comment=Official Flatpak builds of Filen desktop client
-          Description=Automated Flatpak repository for Filen Desktop hosted via GitHub Pages.
-          Icon=https://raw.githubusercontent.com/anthony1x6000/io.filen.desktop/main/icons/128x128.png
-          EOF
-
-          touch _site/.nojekyll
+        run: bash scripts/prepare-pages.sh _site
 
       - name: Upload Pages Artifact
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0

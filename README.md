@@ -135,6 +135,22 @@ To enable automatic updates for Flatpak users via GitHub Pages:
 
 Once configured, each commit pushed to `main` builds and deploys the static OSTree repository at `https://anthony1x6000.github.io/io.filen.desktop/repo/` without being subject to Git branch file size limits.
 
+## Repository scripts
+
+All build, test, and automation logic is decoupled into independent script files with zero embedded scripting in manifests or workflows:
+
+* `install-filen.sh`: Package extraction, cross-architecture binary stripping, and application installation logic executed during `flatpak-builder`.
+* `scripts/validate-metadata.sh`: Validates desktop entry syntax and AppStream metadata specification compliance.
+* `scripts/verify-checksums.py`: Verifies upstream release sha256 checksums from GitHub against the manifest.
+* `scripts/build-flatpak.sh`: Initializes the OSTree repository, compiles the application with `flatpak-builder`, updates static deltas, and generates the standalone `.flatpak` bundle.
+* `scripts/test-bundle-install.sh`: Smoke-tests standalone `.flatpak` bundle installation, permissions, sandbox execution, update polling, and uninstallation.
+* `scripts/test-repo-install.sh`: Tests local OSTree repository installation, execution, delta updates, and uninstallation.
+* `scripts/prepare-pages.sh`: Prepares static site assets (`_site/`) for direct GitHub Pages deployment.
+* `scripts/publish-release.sh`: Publishes GitHub releases and attaches the Flatpak bundle via `gh`.
+* `scripts/update-metainfo.py`: Adds new release version entries to `io.filen.desktop.metainfo.xml`.
+* `scripts/auto-update.sh`: Orchestrates upstream update polling, version bumping, building, tagging, and releasing.
+* `scripts/auto-merge-dependabot.sh`: Approves and enables auto-merge on validated Dependabot PRs.
+
 ## Dependencies
 
 This repository uses the following runtime, build, and CI dependencies:

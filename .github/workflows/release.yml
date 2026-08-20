@@ -23,50 +23,12 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Trust Workspace Directory
-        shell: bash
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Build Flatpak & Create Bundle
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          echo "=== Setting up Flathub remote ==="
-          flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-
-          echo "=== Setting up OSTree Repository ==="
-          mkdir -p repo
-          ostree init --mode=archive --repo=repo
-          ostree config --repo=repo set "core.min-free-space-percent" "0"
-          ostree config --repo=repo set "core.min-free-space-size" "0MB"
-
-          echo "=== Building Flatpak Application ==="
-          flatpak-builder \
-            --repo=repo \
-            --force-clean \
-            --disable-cache \
-            --install-deps-from=flathub \
-            --arch=x86_64 \
-            --default-branch=master \
-            --disable-rofiles-fuse \
-            build-dir \
-            io.filen.desktop.yaml
-
-          echo "=== Updating OSTree Static Repository & Deltas ==="
-          flatpak build-update-repo --generate-static-deltas repo
-
-          echo "=== Creating Single-File Distribution Bundle ==="
-          flatpak build-bundle repo io.filen.desktop.flatpak io.filen.desktop \
-            --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
-            --repo-url=https://anthony1x6000.github.io/io.filen.desktop/repo
+        run: bash scripts/build-flatpak.sh
 
       - name: Publish GitHub Release
-        shell: bash
-        run: |
-          set -euo pipefail
-          TAG="${GITHUB_REF#refs/tags/}"
-          gh release create "$TAG" io.filen.desktop.flatpak \
-            --title "$TAG" \
-            --generate-notes
+        run: bash scripts/publish-release.sh io.filen.desktop.flatpak
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
