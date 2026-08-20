@@ -52,9 +52,6 @@ modules:
         path: filen.sh
 
       - type: file
-        path: filen-directories.conf
-
-      - type: file
         path: io.filen.desktop.desktop
 
       - type: file

@@ -28,9 +28,6 @@ rm -f /app/main/chrome-sandbox
 # Install launcher binary
 install -Dm755 filen.sh /app/bin/filen
 
-# Install configuration defaults
-install -Dm644 filen-directories.conf -t /app/etc/
-
 # Install XDG Desktop entry and AppStream metadata
 install -Dm644 io.filen.desktop.desktop -t /app/share/applications/
 install -Dm644 io.filen.desktop.metainfo.xml -t /app/share/metainfo/

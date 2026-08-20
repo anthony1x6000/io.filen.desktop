@@ -33,38 +33,14 @@ flatpak install --user flathub \
 
 You do not need to install anything locally. The workflows run in GitHub-hosted Ubuntu runners.
 
-## Directory configuration and permissions
+## Sandbox permissions and Flatseal
 
 By default, the Flatpak sandbox is strictly isolated with minimal filesystem privileges:
 
-* **Host storage access:** Restricted strictly to `~/Downloads` (`xdg-download`).
-* **Application data and config:** Isolated inside `~/.var/app/io.filen.desktop/`.
-* **Sync root:** Defaults to `~/Downloads/Filen`.
-
-Directory defaults are configured in `filen-directories.conf`:
-
-* System template: `/app/etc/filen-directories.conf`
-* User config: `~/.config/filen/directories.conf` (created on first run if missing)
-
-```ini
-# Primary sync folder (within permitted ~/Downloads directory)
-FILEN_SYNC_ROOT="$HOME/Downloads/Filen"
-
-# Permitted sync directories
-FILEN_ALLOWED_DIRS="$HOME/Downloads"
-
-# Automatically create the sync root if missing
-FILEN_AUTO_CREATE_SYNC_ROOT=true
-
-# Cache location (isolated within Flatpak sandbox)
-FILEN_CACHE_DIR="$HOME/.var/app/io.filen.desktop/cache"
-
-# Virtual drive mount point
-FILEN_MOUNT_POINT="$HOME/Downloads/FilenDrive"
-
-# Log warnings when syncing outside the allowed list
-FILEN_STRICT_DIRECTORY_CHECK=false
-```
+* **Host filesystem access:** Restricted strictly to `~/Downloads` (`xdg-download`).
+* **Application data & session state:** Securely isolated inside `~/.var/app/io.filen.desktop/`.
+* **Hardware acceleration:** DRI (`--device=dri`).
+* **Credentials:** Freedesktop Secret Service & KDE KWallet D-Bus interfaces.
 
 ### Granting access to additional folders (Flatseal)
 
@@ -72,8 +48,8 @@ If you want to sync folders outside of `~/Downloads` (such as `~/Documents`, `~/
 
 1. **Using Flatseal (graphical interface):**
    * Open **Flatseal** and select **Filen**.
-   * Scroll to the **Filesystem** section -> **Other files**.
-   * Click **+** (Add) and specify your directory path (e.g., `~/Documents` or `/media/storage`).
+   * Scroll down to the **Filesystem** section -> **Other files**.
+   * Click **+** (Add) and specify your desired folder path (e.g. `~/Documents` or `/media/storage`).
 
 2. **Using the command line:**
    ```bash
