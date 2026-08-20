@@ -7,6 +7,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+env:
+  ACTIONS_ALLOW_USE_UNSECURE_NODE_VERSION: "true"
+
 jobs:
   validate:
     name: Validate Metadata & Upstream Hashes
@@ -18,7 +21,7 @@ jobs:
       - name: Install Validation Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y appstream desktop-file-utils appstream-util curl
+          sudo apt-get install -y appstream desktop-file-utils appstream-util python3
 
       - name: Validate Desktop File
         run: |
@@ -31,30 +34,47 @@ jobs:
 
       - name: Verify Upstream Release Checksums
         run: |
-          VERSION="3.0.53"
-          echo "=== Verifying x86_64 deb checksum ==="
-          curl -sSL "https://github.com/FilenCloudDienste/filen-desktop/releases/download/v${VERSION}/Filen_linux_amd64.deb.sha256.txt" -o amd64.sha256.txt
-          EXPECTED_AMD64=$(awk '{print $1}' amd64.sha256.txt)
-          MANIFEST_AMD64=$(grep -A 10 "Filen_linux_amd64.deb" io.filen.desktop.yaml | grep "sha256:" | head -n 1 | awk '{print $2}')
-          echo "Upstream Release Hash (AMD64): $EXPECTED_AMD64"
-          echo "Manifest Declared Hash (AMD64): $MANIFEST_AMD64"
-          if [ "$EXPECTED_AMD64" != "$MANIFEST_AMD64" ]; then
-            echo "::error::AMD64 checksum mismatch between manifest and upstream release!"
-            exit 1
-          fi
+          python3 - << 'EOF'
+          import re, urllib.request, sys
 
-          echo "=== Verifying aarch64 deb checksum ==="
-          curl -sSL "https://github.com/FilenCloudDienste/filen-desktop/releases/download/v${VERSION}/Filen_linux_arm64.deb.sha256.txt" -o arm64.sha256.txt
-          EXPECTED_ARM64=$(awk '{print $1}' arm64.sha256.txt)
-          MANIFEST_ARM64=$(grep -A 10 "Filen_linux_arm64.deb" io.filen.desktop.yaml | grep "sha256:" | head -n 1 | awk '{print $2}')
-          echo "Upstream Release Hash (ARM64): $EXPECTED_ARM64"
-          echo "Manifest Declared Hash (ARM64): $MANIFEST_ARM64"
-          if [ "$EXPECTED_ARM64" != "$MANIFEST_ARM64" ]; then
-            echo "::error::ARM64 checksum mismatch between manifest and upstream release!"
-            exit 1
-          fi
+          with open("io.filen.desktop.yaml", "r", encoding="utf-8") as f:
+              manifest = f.read()
 
-          echo "✓ All upstream release checksums match manifest definitions!"
+          # Match the exact sha256 within the extra-data blocks for deb releases
+          amd64_manifest = re.search(r"Filen_linux_amd64\.deb\n\s+sha256:\s+([0-9a-fA-F]{64})", manifest)
+          arm64_manifest = re.search(r"Filen_linux_arm64\.deb\n\s+sha256:\s+([0-9a-fA-F]{64})", manifest)
+
+          if not amd64_manifest or not arm64_manifest:
+              print("::error::Could not extract deb sha256 checksums from manifest!")
+              sys.exit(1)
+
+          manifest_amd64 = amd64_manifest.group(1).lower()
+          manifest_arm64 = arm64_manifest.group(1).lower()
+
+          version_match = re.search(r"v(\d+\.\d+\.\d+)/Filen_linux_amd64\.deb", manifest)
+          version = version_match.group(1) if version_match else "3.0.53"
+
+          print(f"=== Verifying Release v{version} Hashes ===")
+          amd64_url = f"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v{version}/Filen_linux_amd64.deb.sha256.txt"
+          arm64_url = f"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v{version}/Filen_linux_arm64.deb.sha256.txt"
+
+          upstream_amd64 = urllib.request.urlopen(amd64_url).read().decode().strip().split()[0].lower()
+          upstream_arm64 = urllib.request.urlopen(arm64_url).read().decode().strip().split()[0].lower()
+
+          print(f"AMD64 Manifest Hash: {manifest_amd64}")
+          print(f"AMD64 Upstream Hash: {upstream_amd64}")
+          if manifest_amd64 != upstream_amd64:
+              print(f"::error::AMD64 hash mismatch: expected {upstream_amd64}, found {manifest_amd64}")
+              sys.exit(1)
+
+          print(f"ARM64 Manifest Hash: {manifest_arm64}")
+          print(f"ARM64 Upstream Hash: {upstream_arm64}")
+          if manifest_arm64 != upstream_arm64:
+              print(f"::error::ARM64 hash mismatch: expected {upstream_arm64}, found {manifest_arm64}")
+              sys.exit(1)
+
+          print("✓ All release checksums verified successfully!")
+          EOF
 
   build:
     name: Build Flatpak
