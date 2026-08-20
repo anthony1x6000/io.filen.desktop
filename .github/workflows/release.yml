@@ -19,7 +19,7 @@ jobs:
     permissions:
       contents: write
     container:
-      image: ghcr.io/flathub-infra/flatpak-github-actions:freedesktop-24.08
+      image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
       options: --privileged
     steps:
       - name: Checkout Repository
