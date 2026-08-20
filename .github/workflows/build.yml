@@ -26,8 +26,8 @@ jobs:
 
       - name: Validate AppStream Metainfo
         run: |
-          appstream-util validate-relax io.filen.desktop.metainfo.xml
-          appstreamcli validate --no-net io.filen.desktop.metainfo.xml || true
+          appstream-util validate-relax --nonet io.filen.desktop.metainfo.xml
+          appstreamcli validate --no-net io.filen.desktop.metainfo.xml
 
       - name: Verify Upstream Release Checksums
         run: |
