@@ -212,6 +212,7 @@ jobs:
           cp -r repo "$TEMP_DEPLOY/"
           cp io.filen.desktop.flatpakrepo "$TEMP_DEPLOY/"
           cp index.html "$TEMP_DEPLOY/"
+          touch "$TEMP_DEPLOY/.nojekyll"
 
           if git ls-remote --exit-code --heads origin gh-pages; then
             echo "Fetching existing gh-pages branch..."
@@ -223,11 +224,12 @@ jobs:
             git rm -rf .
           fi
 
-          rm -rf repo io.filen.desktop.flatpakrepo index.html
+          rm -rf repo io.filen.desktop.flatpakrepo index.html .nojekyll
           cp -r "$TEMP_DEPLOY"/* .
+          cp "$TEMP_DEPLOY"/.nojekyll .
           rm -rf "$TEMP_DEPLOY"
 
-          git add repo io.filen.desktop.flatpakrepo index.html
+          git add repo io.filen.desktop.flatpakrepo index.html .nojekyll
           
           if git diff --staged --quiet; then
             echo "No changes in OSTree repository."
