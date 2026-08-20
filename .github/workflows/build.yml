@@ -208,11 +208,8 @@ jobs:
           git config user.name "Anthony"
           git config user.email "33004321+anthony1x6000@users.noreply.github.com"
 
-          TEMP_DEPLOY=$(mktemp -d)
-          cp -r repo "$TEMP_DEPLOY/"
-          cp io.filen.desktop.flatpakrepo "$TEMP_DEPLOY/"
-          cp index.html "$TEMP_DEPLOY/"
-          touch "$TEMP_DEPLOY/.nojekyll"
+          TEMP_REPO=$(mktemp -d)
+          tar -xzf repo.tar.gz -C "$TEMP_REPO"
 
           if git ls-remote --exit-code --heads origin gh-pages; then
             echo "Fetching existing gh-pages branch..."
@@ -222,14 +219,15 @@ jobs:
             echo "Creating orphan gh-pages branch..."
             git checkout --orphan gh-pages
             git rm -rf .
+            touch .nojekyll
           fi
 
-          rm -rf repo io.filen.desktop.flatpakrepo index.html .nojekyll
-          cp -r "$TEMP_DEPLOY"/* .
-          cp "$TEMP_DEPLOY"/.nojekyll .
-          rm -rf "$TEMP_DEPLOY"
+          # Sync updated OSTree repository
+          rm -rf repo
+          cp -r "$TEMP_REPO/repo" .
+          rm -rf "$TEMP_REPO"
 
-          git add repo io.filen.desktop.flatpakrepo index.html .nojekyll
+          git add repo .nojekyll
           
           if git diff --staged --quiet; then
             echo "No changes in OSTree repository."
