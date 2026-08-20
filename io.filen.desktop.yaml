@@ -23,8 +23,8 @@ finish-args:
   - --socket=pulseaudio
   # Hardware acceleration
   - --device=dri
-  # Filesystem access for user folder synchronization across local storage
-  - --filesystem=xdg-documents
+  # Filesystem access restricted strictly to ~/Downloads out-of-the-box
+  - --filesystem=xdg-download
   # Credential storage via Freedesktop Secret Service & KDE KWallet
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.kde.kwalletd5

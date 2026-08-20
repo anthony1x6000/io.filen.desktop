@@ -39,7 +39,7 @@ if [ -n "$FILEN_SYNC_ROOT" ]; then
         log "Ensuring sync root directory exists: $EXPANDED_SYNC_ROOT"
         mkdir -p "$EXPANDED_SYNC_ROOT" 2>/dev/null || {
             log "WARNING: Could not create sync root $EXPANDED_SYNC_ROOT. Verify filesystem permissions."
-            log "Hint: Run 'flatpak override --user --filesystem=$EXPANDED_SYNC_ROOT io.filen.desktop' if on an external drive."
+            log "Hint: Use Flatseal or run 'flatpak override --user --filesystem=$EXPANDED_SYNC_ROOT io.filen.desktop' to grant folder access."
         }
     fi
 fi

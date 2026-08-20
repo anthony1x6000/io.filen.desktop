@@ -33,38 +33,53 @@ flatpak install --user flathub \
 
 You do not need to install anything locally. The workflows run in GitHub-hosted Ubuntu runners.
 
-## Directory configuration
+## Directory configuration and permissions
 
-Filen needs access to your local folders to sync files. Allowed paths and defaults are set in `filen-directories.conf`:
+By default, the Flatpak sandbox is strictly isolated with minimal filesystem privileges:
+
+* **Host storage access:** Restricted strictly to `~/Downloads` (`xdg-download`).
+* **Application data and config:** Isolated inside `~/.var/app/io.filen.desktop/`.
+* **Sync root:** Defaults to `~/Downloads/Filen`.
+
+Directory defaults are configured in `filen-directories.conf`:
 
 * System template: `/app/etc/filen-directories.conf`
 * User config: `~/.config/filen/directories.conf` (created on first run if missing)
 
 ```ini
-# Primary sync folder
-FILEN_SYNC_ROOT="$HOME/Filen"
+# Primary sync folder (within permitted ~/Downloads directory)
+FILEN_SYNC_ROOT="$HOME/Downloads/Filen"
 
-# Colon-separated list of allowed sync directories
-FILEN_ALLOWED_DIRS="$HOME/Documents:$HOME/Downloads:$HOME/Pictures:$HOME/Videos:$HOME/Music:$HOME/Projects"
+# Permitted sync directories
+FILEN_ALLOWED_DIRS="$HOME/Downloads"
 
-# Create the sync root if it does not exist
+# Automatically create the sync root if missing
 FILEN_AUTO_CREATE_SYNC_ROOT=true
 
-# Cache location
+# Cache location (isolated within Flatpak sandbox)
 FILEN_CACHE_DIR="$HOME/.var/app/io.filen.desktop/cache"
 
 # Virtual drive mount point
-FILEN_MOUNT_POINT="$HOME/FilenDrive"
+FILEN_MOUNT_POINT="$HOME/Downloads/FilenDrive"
 
 # Log warnings when syncing outside the allowed list
 FILEN_STRICT_DIRECTORY_CHECK=false
 ```
 
-To grant access to directories on external drives or secondary mounts, use Flatpak overrides:
+### Granting access to additional folders (Flatseal)
 
-```bash
-flatpak override --user --filesystem=/media/storage io.filen.desktop
-```
+If you want to sync folders outside of `~/Downloads` (such as `~/Documents`, `~/Projects`, or external storage drives):
+
+1. **Using Flatseal (graphical interface):**
+   * Open **Flatseal** and select **Filen**.
+   * Scroll to the **Filesystem** section -> **Other files**.
+   * Click **+** (Add) and specify your directory path (e.g., `~/Documents` or `/media/storage`).
+
+2. **Using the command line:**
+   ```bash
+   flatpak override --user --filesystem=~/Documents io.filen.desktop
+   flatpak override --user --filesystem=/media/storage io.filen.desktop
+   ```
 
 ## Installation and updates
 
