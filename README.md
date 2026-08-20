@@ -131,10 +131,9 @@ flatpak build-bundle repo io.filen.desktop.flatpak io.filen.desktop --runtime-re
 To enable automatic updates for Flatpak users via GitHub Pages:
 
 1. Open repository settings at `Settings -> Pages` (or visit `https://github.com/anthony1x6000/io.filen.desktop/settings/pages`).
-2. Under **Build and deployment**, set **Source** to **Deploy from a branch**.
-3. Select branch **`gh-pages`** and folder **`/ (root)`**, then click **Save**.
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
 
-Once configured, each commit pushed to `main` updates the static OSTree repository at `https://anthony1x6000.github.io/io.filen.desktop/repo/`.
+Once configured, each commit pushed to `main` builds and deploys the static OSTree repository at `https://anthony1x6000.github.io/io.filen.desktop/repo/` without being subject to Git branch file size limits.
 
 ## Dependencies
 
@@ -168,6 +167,8 @@ All third-party action wrappers were removed in favor of native container execut
 | `actions/checkout` | GitHub Action | `v7.0.1` | `3d3c42e5aac5ba805825da76410c181273ba90b1` | Repository checkout |
 | `actions/upload-artifact` | GitHub Action | `v7.0.1` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Upload build bundles in CI |
 | `actions/download-artifact` | GitHub Action | `v8.0.1` | `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c` | Download build bundles for smoke testing |
+| `actions/upload-pages-artifact` | GitHub Action | `v5.0.0` | `fc324d3547104276b827a68afc52ff2a11cc49c9` | Package OSTree repository for Pages |
+| `actions/deploy-pages` | GitHub Action | `v5.0.0` | `cd2ce8fcbc39b97be8ca5fce6e763baed58fa128` | Direct CDN deployment for GitHub Pages |
 | `dependabot/fetch-metadata` | GitHub Action | `v3.1.0` | `25dd0e34f4fe68f24cc83900b1fe3fe149efef98` | Dependabot PR metadata extraction |
 | `gh` | CLI tool | Pre-installed | Native Go binary | GitHub release publishing |
 
