@@ -38,6 +38,7 @@ finish-args:
 
 modules:
   - name: filen
+    buildsystem: simple
     build-commands:
       # Extract debian package into /app/main
       - mkdir -p /app/main
