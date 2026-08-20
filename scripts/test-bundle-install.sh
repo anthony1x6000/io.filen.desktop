@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# SPDX-License-Identifier: AGPL-3.0-only
 set -euo pipefail
 
 BUNDLE_FILE="${1:-io.filen.desktop-x86_64.flatpak}"
