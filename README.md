@@ -124,6 +124,7 @@ All third-party action wrappers were removed in favor of native container execut
 | `flatpak-github-actions:gnome-48` | Container image | `gnome-48` | `ghcr.io/flathub-infra/flatpak-github-actions:gnome-48` | Official Flathub build container |
 | `actions/checkout` | GitHub Action | `v7.0.1` | `3d3c42e5aac5ba805825da76410c181273ba90b1` | Repository checkout |
 | `actions/upload-artifact` | GitHub Action | `v7.0.1` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Upload build bundles in CI |
+| `actions/download-artifact` | GitHub Action | `v8.0.1` | `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c` | Download build bundles for smoke testing |
 | `dependabot/fetch-metadata` | GitHub Action | `v3.1.0` | `25dd0e34f4fe68f24cc83900b1fe3fe149efef98` | Dependabot PR metadata extraction |
 | `gh` | CLI tool | Pre-installed | Native Go binary | GitHub release publishing |
 
