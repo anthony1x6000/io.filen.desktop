@@ -34,7 +34,7 @@ fi
 
 # 3. Expand and prepare configured directories
 if [ -n "$FILEN_SYNC_ROOT" ]; then
-    EXPANDED_SYNC_ROOT=$(eval echo "$FILEN_SYNC_ROOT")
+    EXPANDED_SYNC_ROOT="${FILEN_SYNC_ROOT/#\~/$HOME}"
     if [ "$FILEN_AUTO_CREATE_SYNC_ROOT" = "true" ] && [ ! -d "$EXPANDED_SYNC_ROOT" ]; then
         log "Ensuring sync root directory exists: $EXPANDED_SYNC_ROOT"
         mkdir -p "$EXPANDED_SYNC_ROOT" 2>/dev/null || {
@@ -48,7 +48,7 @@ fi
 if [ -n "$FILEN_ALLOWED_DIRS" ]; then
     IFS=':' read -ra DIRS <<< "$FILEN_ALLOWED_DIRS"
     for DIR in "${DIRS[@]}"; do
-        EXP_DIR=$(eval echo "$DIR")
+        EXP_DIR="${DIR/#\~/$HOME}"
         if [ ! -d "$EXP_DIR" ] && [ "$FILEN_STRICT_DIRECTORY_CHECK" = "true" ]; then
             log "Notice: Configured allowed directory $EXP_DIR is not present or accessible."
         fi
