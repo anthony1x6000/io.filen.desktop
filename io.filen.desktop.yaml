@@ -57,30 +57,6 @@ modules:
       - type: file
         path: io.filen.desktop.metainfo.xml
 
-      - type: file
-        path: icons/16x16.png
-
-      - type: file
-        path: icons/24x24.png
-
-      - type: file
-        path: icons/32x32.png
-
-      - type: file
-        path: icons/48x48.png
-
-      - type: file
-        path: icons/64x64.png
-
-      - type: file
-        path: icons/128x128.png
-
-      - type: file
-        path: icons/256x256.png
-
-      - type: file
-        path: icons/512x512.png
-
       # x86_64 binary release source (deb)
       - type: file
         dest-filename: filen.deb

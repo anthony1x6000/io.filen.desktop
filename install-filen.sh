@@ -15,6 +15,13 @@ elif [ -d opt/filen ]; then
   cp -a opt/filen/* /app/main/
 fi
 
+# Install application icons directly from upstream package (excluding 1024x1024 for Flatpak limits)
+for size in 16x16 24x24 32x32 48x48 64x64 128x128 256x256 512x512; do
+  if [ -f "usr/share/icons/hicolor/${size}/apps/Filen.png" ]; then
+    install -Dm644 "usr/share/icons/hicolor/${size}/apps/Filen.png" "/app/share/icons/hicolor/${size}/apps/io.filen.desktop.png"
+  fi
+done
+
 rm -rf data.tar.* control.tar.* debian-binary usr opt
 patch-desktop-filename /app/main/resources/app.asar 2>/dev/null || true
 
@@ -31,13 +38,3 @@ install -Dm755 filen.sh /app/bin/filen
 # Install XDG Desktop entry and AppStream metadata
 install -Dm644 io.filen.desktop.desktop -t /app/share/applications/
 install -Dm644 io.filen.desktop.metainfo.xml -t /app/share/metainfo/
-
-# Install application icons
-install -Dm644 16x16.png /app/share/icons/hicolor/16x16/apps/io.filen.desktop.png
-install -Dm644 24x24.png /app/share/icons/hicolor/24x24/apps/io.filen.desktop.png
-install -Dm644 32x32.png /app/share/icons/hicolor/32x32/apps/io.filen.desktop.png
-install -Dm644 48x48.png /app/share/icons/hicolor/48x48/apps/io.filen.desktop.png
-install -Dm644 64x64.png /app/share/icons/hicolor/64x64/apps/io.filen.desktop.png
-install -Dm644 128x128.png /app/share/icons/hicolor/128x128/apps/io.filen.desktop.png
-install -Dm644 256x256.png /app/share/icons/hicolor/256x256/apps/io.filen.desktop.png
-install -Dm644 512x512.png /app/share/icons/hicolor/512x512/apps/io.filen.desktop.png
