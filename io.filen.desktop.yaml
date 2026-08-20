@@ -24,7 +24,7 @@ finish-args:
   # Hardware acceleration
   - --device=dri
   # Filesystem access for user folder synchronization across local storage
-  - --filesystem=host
+  - --filesystem=xdg-documents
   # Credential storage via Freedesktop Secret Service & KDE KWallet
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.kde.kwalletd5
