@@ -68,6 +68,17 @@ modules:
       - type: script
         dest-filename: apply_extra
         commands:
+          # Verify deb SHA256 against upstream release hash
+          - |
+            echo "[apply_extra] Verifying debian package checksum against release hash..."
+            if [ -f Filen_linux_amd64.deb.sha256.txt ]; then
+              EXPECTED_HASH=$(awk '{print $1}' Filen_linux_amd64.deb.sha256.txt)
+              echo "${EXPECTED_HASH}  filen.deb" | sha256sum -c -
+            elif [ -f Filen_linux_arm64.deb.sha256.txt ]; then
+              EXPECTED_HASH=$(awk '{print $1}' Filen_linux_arm64.deb.sha256.txt)
+              echo "${EXPECTED_HASH}  filen.deb" | sha256sum -c -
+            fi
+            echo "[apply_extra] Checksum verified. Extracting debian package..."
           - ar x filen.deb
           - tar xf data.tar.*
           - |
@@ -120,31 +131,42 @@ modules:
       - type: file
         path: icons/1024x1024.png
 
-      # x86_64 binary release source
+      # Upstream SHA256 checksum files
+      - type: file
+        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/Filen_linux_amd64.deb.sha256.txt
+        sha256: 9a3010db765a1406081b63c7c054960ee5a9eeec47b8765f18d671dfd78521d0
+        only-arches: [x86_64]
+
+      - type: file
+        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/Filen_linux_arm64.deb.sha256.txt
+        sha256: 833a43c9b883c10cc87f04fa4158e16e8c8676309b0a704ac151b4e0b9ab6023
+        only-arches: [aarch64]
+
+      # x86_64 binary release source (deb)
       - type: extra-data
         filename: filen.deb
         only-arches: [x86_64]
-        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/filen-desktop-3.0.53-linux-x86_64.deb
-        sha256: 08dd10efab703eb5c67d6052be5791c1d683709b119cbef8fbcf1e75fcb1f092
-        size: 92350848
+        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/Filen_linux_amd64.deb
+        sha256: 2c22f9ab466be753824a784e9c63e7d4b48a7e25f1d641ba6304415c35c6ce04
+        size: 284164096
         x-checker-data:
           type: json
           url: https://api.github.com/repos/FilenCloudDienste/filen-desktop/releases/latest
           version-query: .tag_name | sub("^v"; "")
           timestamp-query: .published_at
-          url-query: '"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v" + $version + "/filen-desktop-" + $version + "-linux-x86_64.deb"'
+          url-query: '"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v" + $version + "/Filen_linux_amd64.deb"'
           is-main-source: true
 
-      # aarch64 binary release source
+      # aarch64 binary release source (deb)
       - type: extra-data
         filename: filen.deb
         only-arches: [aarch64]
-        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/filen-desktop-3.0.53-linux-arm64.deb
-        sha256: 45781a7ee5fba73b6feac6e2d93e87178c72cfcf78f5f0b4d45d94bc6bb59cba
-        size: 89450124
+        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/Filen_linux_arm64.deb
+        sha256: 4a5feed506939d8c9b841473920514b9d900d66c743f43a7a0e984fcc41029d9
+        size: 277872640
         x-checker-data:
           type: json
           url: https://api.github.com/repos/FilenCloudDienste/filen-desktop/releases/latest
           version-query: .tag_name | sub("^v"; "")
           timestamp-query: .published_at
-          url-query: '"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v" + $version + "/filen-desktop-" + $version + "-linux-arm64.deb"'
+          url-query: '"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v" + $version + "/Filen_linux_arm64.deb"'

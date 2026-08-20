@@ -6,6 +6,7 @@ Flatpak packaging repository and automated CI/CD workflows for **[Filen Desktop]
 
 ## Table of Contents
 
+- [Packaging Architecture & Release Hash Verification](#packaging-architecture--release-hash-verification)
 - [Prerequisites (What to Install)](#prerequisites-what-to-install)
   - [Local Machine Requirements](#local-machine-requirements)
   - [GitHub Actions Requirements](#github-actions-requirements)
@@ -21,6 +22,23 @@ Flatpak packaging repository and automated CI/CD workflows for **[Filen Desktop]
 - [Automated Builds with GitHub Actions](#automated-builds-with-github-actions)
 - [Repository Structure](#repository-structure)
 - [Sandboxing & Architecture Details](#sandboxing--architecture-details)
+
+---
+
+## Packaging Architecture & Release Hash Verification
+
+This Flatpak packages official upstream Linux `.deb` release binaries with two layers of cryptographic integrity verification:
+
+1. **Flatpak Manifest Hash Enforcement:**
+   `io.filen.desktop.yaml` pins the exact SHA256 hashes of the upstream `.deb` release artifacts and their companion `.sha256.txt` files.
+   * **x86_64 (`Filen_linux_amd64.deb`):** `2c22f9ab466be753824a784e9c63e7d4b48a7e25f1d641ba6304415c35c6ce04`
+   * **aarch64 (`Filen_linux_arm64.deb`):** `4a5feed506939d8c9b841473920514b9d900d66c743f43a7a0e984fcc41029d9`
+
+2. **Extraction-Time Checksum Verification:**
+   During build / extra-data extraction, `apply_extra` dynamically verifies the downloaded debian package against the upstream `.sha256.txt` manifest via `sha256sum -c` before unpacking.
+
+3. **CI/CD Upstream Verification:**
+   The GitHub Actions workflow [`.github/workflows/build.yml`](.github/workflows/build.yml) queries the GitHub Release API and compares the manifest's declared hashes directly against the live release checksums on every commit.
 
 ---
 
@@ -54,10 +72,10 @@ sudo zypper install flatpak flatpak-builder
 To validate desktop entries and AppStream metadata:
 ```bash
 # Ubuntu / Debian
-sudo apt install -y desktop-file-utils appstream appstream-util
+sudo apt install -y desktop-file-utils appstream appstream-util curl
 
 # Fedora
-sudo dnf install -y desktop-file-utils libappstream-glib appstream
+sudo dnf install -y desktop-file-utils libappstream-glib appstream curl
 ```
 
 ### GitHub Actions Requirements
@@ -188,6 +206,7 @@ This repository includes two GitHub Actions workflows located in `.github/workfl
 
 1. **`build.yml` (Continuous Integration):**
    - Triggers on every push and pull request to `main` / `master`.
+   - Verifies declared hashes against the live upstream `.deb.sha256.txt` release files.
    - Validates `.desktop` and AppStream `.metainfo.xml` files.
    - Builds the package using `flatpak/flatpak-github-actions/flatpak-builder@v6`.
    - Generates a downloadable `io.filen.desktop-x86_64.flatpak` artifact for testing.
@@ -205,7 +224,7 @@ This repository includes two GitHub Actions workflows located in `.github/workfl
 io.filen.desktop/
 ├── .github/
 │   └── workflows/
-│       ├── build.yml                 # Automated CI build & metadata validation
+│       ├── build.yml                 # Automated CI build & release hash verification
 │       └── release.yml               # Automated release bundle publisher
 ├── icons/                            # Standard hicolor PNG icons (16x16 to 1024x1024)
 │   ├── 16x16.png
@@ -217,7 +236,7 @@ io.filen.desktop/
 ├── flathub.json                      # Flathub builder settings
 ├── io.filen.desktop.desktop          # XDG Desktop entry
 ├── io.filen.desktop.metainfo.xml      # AppStream metadata & release info
-├── io.filen.desktop.yaml             # Main Flatpak build manifest
+├── io.filen.desktop.yaml             # Main Flatpak build manifest (with release SHA256)
 └── README.md                         # Documentation & build instructions
 ```
 

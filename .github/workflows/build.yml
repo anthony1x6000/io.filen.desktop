@@ -9,7 +9,7 @@ on:
 
 jobs:
   validate:
-    name: Validate Metadata
+    name: Validate Metadata & Upstream Hashes
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repository
@@ -18,7 +18,7 @@ jobs:
       - name: Install Validation Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y appstream desktop-file-utils appstream-util
+          sudo apt-get install -y appstream desktop-file-utils appstream-util curl
 
       - name: Validate Desktop File
         run: |
@@ -28,6 +28,33 @@ jobs:
         run: |
           appstream-util validate-relax io.filen.desktop.metainfo.xml
           appstreamcli validate --no-net io.filen.desktop.metainfo.xml || true
+
+      - name: Verify Upstream Release Checksums
+        run: |
+          VERSION="3.0.53"
+          echo "=== Verifying x86_64 deb checksum ==="
+          curl -sSL "https://github.com/FilenCloudDienste/filen-desktop/releases/download/v${VERSION}/Filen_linux_amd64.deb.sha256.txt" -o amd64.sha256.txt
+          EXPECTED_AMD64=$(awk '{print $1}' amd64.sha256.txt)
+          MANIFEST_AMD64=$(grep -A 10 "Filen_linux_amd64.deb" io.filen.desktop.yaml | grep "sha256:" | head -n 1 | awk '{print $2}')
+          echo "Upstream Release Hash (AMD64): $EXPECTED_AMD64"
+          echo "Manifest Declared Hash (AMD64): $MANIFEST_AMD64"
+          if [ "$EXPECTED_AMD64" != "$MANIFEST_AMD64" ]; then
+            echo "::error::AMD64 checksum mismatch between manifest and upstream release!"
+            exit 1
+          fi
+
+          echo "=== Verifying aarch64 deb checksum ==="
+          curl -sSL "https://github.com/FilenCloudDienste/filen-desktop/releases/download/v${VERSION}/Filen_linux_arm64.deb.sha256.txt" -o arm64.sha256.txt
+          EXPECTED_ARM64=$(awk '{print $1}' arm64.sha256.txt)
+          MANIFEST_ARM64=$(grep -A 10 "Filen_linux_arm64.deb" io.filen.desktop.yaml | grep "sha256:" | head -n 1 | awk '{print $2}')
+          echo "Upstream Release Hash (ARM64): $EXPECTED_ARM64"
+          echo "Manifest Declared Hash (ARM64): $MANIFEST_ARM64"
+          if [ "$EXPECTED_ARM64" != "$MANIFEST_ARM64" ]; then
+            echo "::error::ARM64 checksum mismatch between manifest and upstream release!"
+            exit 1
+          fi
+
+          echo "✓ All upstream release checksums match manifest definitions!"
 
   build:
     name: Build Flatpak
