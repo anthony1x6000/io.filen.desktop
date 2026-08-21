@@ -1,5 +1,8 @@
 # Filen desktop Flatpak (`io.filen.desktop`)
 
+> [!IMPORTANT]
+> **Unofficial Package**: This is an unofficial, community-maintained Flatpak packaging for the Filen desktop client. It is not affiliated with, endorsed by, or maintained by Filen Cloud Dienste UG.
+
 Flatpak build files and packaging for the Filen desktop client (`io.filen.desktop`).
 
 ## Table of contents
@@ -208,7 +211,7 @@ All third-party action wrappers were removed in favor of native container execut
 
 ## Sandbox details
 
-* Packaging method: Repackages the official upstream `.deb` release during build time with verified cryptographic checksums, producing fully standalone Flatpak bundles.
+* Packaging method: Repackages the upstream `.deb` release during build time with verified cryptographic checksums, producing fully standalone Flatpak bundles.
 * Display: Uses Wayland with fallback to X11.
 * Credentials: Uses the Freedesktop Secret Service (`org.freedesktop.secrets`) and KDE KWallet for session tokens.
 * Updates: Disables the in-app electron-updater so Flatpak manages updates.
