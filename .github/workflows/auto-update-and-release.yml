@@ -2,7 +2,7 @@ name: Auto Update & Release
 
 on:
   schedule:
-    - cron: '0 */6 * * *' # Check every 6 hours
+    - cron: '0 0 * * *' # Check daily at midnight UTC
   workflow_dispatch:
 
 permissions:

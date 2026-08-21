@@ -103,18 +103,17 @@ Run the application:
 flatpak run io.filen.desktop
 ```
 
-Create a standalone `.flatpak` bundle file:
+Build the complete OSTree repository and standalone `.flatpak` bundle:
 
 ```bash
-flatpak-builder --repo=repo --force-clean build-dir io.filen.desktop.yaml
-flatpak build-bundle repo io.filen.desktop.flatpak io.filen.desktop --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+bash scripts/build-flatpak.sh
 ```
 
 ## GitHub Actions workflows
 
 * `.github/workflows/build.yml`: Verifies the upstream deb SHA256 hashes against `io.filen.desktop.yaml`, checks AppStream metadata, builds the Flatpak package, verifies local installation, and deploys the OSTree repository to GitHub Pages on pushes to `main`.
 * `.github/workflows/release.yml`: Builds and uploads a `.flatpak` bundle to GitHub Releases when you push a version tag (`v*`).
-* `.github/workflows/auto-update-and-release.yml`: Checks for new upstream releases from Filen every 6 hours via `flatpak-external-data-checker`, bumps version numbers and checksums, and tags new releases.
+* `.github/workflows/auto-update-and-release.yml`: Checks for new upstream releases from Filen daily at midnight UTC via `flatpak-external-data-checker`, bumps version numbers and checksums, and tags new releases.
 * `.github/workflows/dependabot-auto-merge.yml`: Automatically merges Dependabot dependency updates after CI tests pass.
 
 ## GitHub Pages repository hosting
@@ -130,7 +129,7 @@ Once configured, each commit pushed to `main` builds and deploys the static OSTr
 
 All build, test, and automation logic is decoupled into independent script files with zero embedded scripting in manifests or workflows:
 
-* `install-filen.sh`: Package extraction, cross-architecture binary stripping, and application installation logic executed during `flatpak-builder`.
+* `install-filen.sh`: Package extraction, hicolor icon installation, cross-architecture binary stripping, and application installation logic executed during `flatpak-builder`.
 * `scripts/validate-metadata.sh`: Validates desktop entry syntax and AppStream metadata specification compliance.
 * `scripts/verify-checksums.py`: Verifies upstream release sha256 checksums from GitHub against the manifest.
 * `scripts/build-flatpak.sh`: Initializes the OSTree repository, compiles the application with `flatpak-builder`, updates static deltas, and generates the standalone `.flatpak` bundle.
