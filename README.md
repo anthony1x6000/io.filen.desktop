@@ -2,6 +2,28 @@
 
 Flatpak build files and packaging for the Filen desktop client (`io.filen.desktop`).
 
+## Table of contents
+
+- [Prerequisites](#prerequisites)
+  - [For local builds](#for-local-builds)
+  - [For GitHub Actions](#for-github-actions)
+- [Sandbox permissions and Flatseal](#sandbox-permissions-and-flatseal)
+  - [Granting access to additional folders (Flatseal)](#granting-access-to-additional-folders-flatseal)
+- [Installation and updates](#installation-and-updates)
+  - [Install from the repository (automatic updates)](#install-from-the-repository-automatic-updates)
+  - [Install from standalone `.flatpak` bundle](#install-from-standalone-flatpak-bundle)
+- [Build and install locally](#build-and-install-locally)
+- [GitHub Actions workflows](#github-actions-workflows)
+- [GitHub Pages repository hosting](#github-pages-repository-hosting)
+- [Repository scripts](#repository-scripts)
+- [Dependencies](#dependencies)
+  - [Flatpak runtime and base dependencies](#flatpak-runtime-and-base-dependencies)
+  - [Host and validation tools](#host-and-validation-tools)
+  - [CI container and GitHub Actions dependencies](#ci-container-and-github-actions-dependencies)
+  - [Upstream package binaries](#upstream-package-binaries)
+- [Sandbox details](#sandbox-details)
+- [License](#license)
+
 ## Prerequisites
 
 ### For local builds
