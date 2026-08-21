@@ -1,7 +1,6 @@
 # Filen desktop Flatpak (`io.filen.desktop`)
 
-> [!IMPORTANT]
-> **Unofficial Package**: This is an unofficial, community-maintained Flatpak packaging for the Filen desktop client. It is not affiliated with, endorsed by, or maintained by Filen Cloud Dienste UG.
+> 🚨 **Warning**: This is an unofficial Flatpak build of Filen, generated from the official Filen-built .deb packages here: https://filen.io/products/desktop
 
 Flatpak build files and packaging for the Filen desktop client (`io.filen.desktop`).
 
