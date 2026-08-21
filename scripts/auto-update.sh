@@ -3,7 +3,7 @@ set -euo pipefail
 
 echo "=== Installing flatpak-external-data-checker ==="
 flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-flatpak install -y flathub org.flathub.flatpak-external-data-checker
+flatpak install -y --user --noninteractive flathub org.flathub.flatpak-external-data-checker
 
 echo "=== Checking for Upstream Updates ==="
 flatpak run --env=GITHUB_TOKEN="${GITHUB_TOKEN:-}" --filesystem="$(pwd)" org.flathub.flatpak-external-data-checker --update io.filen.desktop.yaml
