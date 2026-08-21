@@ -1,6 +1,6 @@
 # Filen desktop Flatpak (`io.filen.desktop`)
 
-> 🚨 **Warning**: This is an unofficial Flatpak build of Filen, generated from the official Filen-built .deb packages here: https://filen.io/products/desktop
+**Warning**: This is an unofficial Flatpak build of Filen, generated from the official Filen-built .deb packages here: https://filen.io/products/desktop
 
 Flatpak build files and packaging for the Filen desktop client (`io.filen.desktop`).
 
