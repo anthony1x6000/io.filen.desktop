@@ -9,14 +9,11 @@ Flatpak build files and packaging for the Filen desktop client (`io.filen.deskto
 - [Prerequisites](#prerequisites)
   - [For local builds](#for-local-builds)
   - [For GitHub Actions](#for-github-actions)
+- [Installation](#installation)
 - [Sandbox permissions and Flatseal](#sandbox-permissions-and-flatseal)
   - [Granting access to additional folders (Flatseal)](#granting-access-to-additional-folders-flatseal)
-- [Installation and updates](#installation-and-updates)
-  - [Install from the repository (automatic updates)](#install-from-the-repository-automatic-updates)
-  - [Install from standalone `.flatpak` bundle](#install-from-standalone-flatpak-bundle)
 - [Build and install locally](#build-and-install-locally)
 - [GitHub Actions workflows](#github-actions-workflows)
-- [GitHub Pages repository hosting](#github-pages-repository-hosting)
 - [Repository scripts](#repository-scripts)
 - [Dependencies](#dependencies)
   - [Flatpak runtime and base dependencies](#flatpak-runtime-and-base-dependencies)
@@ -57,6 +54,26 @@ flatpak install --user flathub \
 
 You do not need to install anything locally. The workflows run in GitHub-hosted Ubuntu runners.
 
+## Installation
+
+Download the latest `io.filen.desktop.flatpak` single-file bundle from [GitHub Releases](https://github.com/anthony1x6000/io.filen.desktop/releases), then install:
+
+```bash
+flatpak install --user io.filen.desktop.flatpak
+```
+
+Or install directly from the release URL:
+
+```bash
+flatpak install --user https://github.com/anthony1x6000/io.filen.desktop/releases/latest/download/io.filen.desktop.flatpak
+```
+
+Run the application:
+
+```bash
+flatpak run io.filen.desktop
+```
+
 ## Sandbox permissions and Flatseal
 
 By default, the Flatpak sandbox is strictly isolated with minimal filesystem privileges:
@@ -81,41 +98,9 @@ If you want to sync folders outside of `~/Downloads` (such as `~/Documents`, `~/
    flatpak override --user --filesystem=/media/storage io.filen.desktop
    ```
 
-## Installation and updates
-
-### Install from the repository (automatic updates)
-
-Add the repository:
-
-```bash
-flatpak remote-add --if-not-exists --user filen https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakrepo
-```
-
-Install the application:
-
-```bash
-flatpak install --user filen io.filen.desktop
-```
-
-Update at any time:
-
-```bash
-flatpak update
-```
-
-### Install from standalone `.flatpak` bundle
-
-Download `io.filen.desktop-x86_64.flatpak` from the latest release or artifact, then install:
-
-```bash
-flatpak install --user io.filen.desktop-x86_64.flatpak
-```
-
-Bundles built by this repository embed the repository origin URL automatically, enabling future updates via `flatpak update`.
-
 ## Build and install locally
 
-Build and install the application:
+Build and install the application directly into your local Flatpak environment:
 
 ```bash
 flatpak-builder --force-clean --user --install-deps-from=flathub --install build-dir io.filen.desktop.yaml
@@ -127,7 +112,7 @@ Run the application:
 flatpak run io.filen.desktop
 ```
 
-Build the complete OSTree repository and standalone `.flatpak` bundle:
+Or build the standalone `.flatpak` bundle:
 
 ```bash
 bash scripts/build-flatpak.sh
@@ -135,19 +120,10 @@ bash scripts/build-flatpak.sh
 
 ## GitHub Actions workflows
 
-* `.github/workflows/build.yml`: Verifies the upstream deb SHA256 hashes against `io.filen.desktop.yaml`, checks AppStream metadata, builds the Flatpak package, verifies local installation, and deploys the OSTree repository to GitHub Pages on pushes to `main`.
-* `.github/workflows/release.yml`: Builds and uploads a `.flatpak` bundle to GitHub Releases when you push a version tag (`v*`).
+* `.github/workflows/build.yml`: Verifies upstream deb SHA256 hashes against `io.filen.desktop.yaml`, checks AppStream metadata, builds the Flatpak package, and verifies local bundle installation and execution.
+* `.github/workflows/release.yml`: Builds and uploads a standalone `.flatpak` bundle to GitHub Releases when you push a version tag (`v*`).
 * `.github/workflows/auto-update-and-release.yml`: Checks for new upstream releases from Filen daily at midnight UTC via `flatpak-external-data-checker`, bumps version numbers and checksums, and tags new releases.
 * `.github/workflows/dependabot-auto-merge.yml`: Automatically merges Dependabot dependency updates after CI tests pass.
-
-## GitHub Pages repository hosting
-
-To enable automatic updates for Flatpak users via GitHub Pages:
-
-1. Open repository settings at `Settings -> Pages` (or visit `https://github.com/anthony1x6000/io.filen.desktop/settings/pages`).
-2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
-
-Once configured, each commit pushed to `main` builds and deploys the static OSTree repository at `https://anthony1x6000.github.io/io.filen.desktop/repo/` without being subject to Git branch file size limits.
 
 ## Repository scripts
 
@@ -156,10 +132,8 @@ All build, test, and automation logic is decoupled into independent script files
 * `install-filen.sh`: Package extraction, hicolor icon installation, cross-architecture binary stripping, and application installation logic executed during `flatpak-builder`.
 * `scripts/validate-metadata.sh`: Validates desktop entry syntax and AppStream metadata specification compliance.
 * `scripts/verify-checksums.py`: Verifies upstream release sha256 checksums from GitHub against the manifest.
-* `scripts/build-flatpak.sh`: Initializes the OSTree repository, compiles the application with `flatpak-builder`, updates static deltas, and generates the standalone `.flatpak` bundle.
-* `scripts/test-bundle-install.sh`: Smoke-tests standalone `.flatpak` bundle installation, permissions, sandbox execution, update polling, and uninstallation.
-* `scripts/test-repo-install.sh`: Tests local OSTree repository installation, execution, delta updates, and uninstallation.
-* `scripts/prepare-pages.sh`: Builds static web pages with the Libreboot Static Site Generator (`lbssg`) and stages the OSTree repository for GitHub Pages deployment.
+* `scripts/build-flatpak.sh`: Initializes the repository, compiles the application with `flatpak-builder`, and generates the standalone `.flatpak` distribution bundle.
+* `scripts/test-bundle-install.sh`: Smoke-tests standalone `.flatpak` bundle installation, permissions, sandbox execution, and uninstallation.
 * `scripts/publish-release.sh`: Publishes GitHub releases and attaches the Flatpak bundle via `gh`.
 * `scripts/update-metainfo.py`: Adds new release version entries to `io.filen.desktop.metainfo.xml`.
 * `scripts/auto-update.sh`: Orchestrates upstream update polling, version bumping, building, tagging, and releasing.
@@ -185,7 +159,6 @@ This repository uses the following runtime, build, and CI dependencies:
 | `flatpak-builder` | 1.2.0 | Manifest build orchestrator |
 | `desktop-file-utils` | 0.26 | Desktop entry specification validator |
 | `appstream` / `appstream-util` | 0.16 | AppStream metainfo XML validator |
-| `pandoc` | 2.9+ | Markdown to HTML compiler used by `lbssg` |
 | `python3` | 3.8+ | Standard library only, used to verify upstream release checksums in CI |
 
 ### CI container and GitHub Actions dependencies
@@ -198,8 +171,6 @@ All third-party action wrappers were removed in favor of native container execut
 | `actions/checkout` | GitHub Action | `v7.0.1` | `3d3c42e5aac5ba805825da76410c181273ba90b1` | Repository checkout |
 | `actions/upload-artifact` | GitHub Action | `v7.0.1` | `043fb46d1a93c77aae656e7c1c64a875d1fc6a0a` | Upload build bundles in CI |
 | `actions/download-artifact` | GitHub Action | `v8.0.1` | `3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c` | Download build bundles for smoke testing |
-| `actions/upload-pages-artifact` | GitHub Action | `v5.0.0` | `fc324d3547104276b827a68afc52ff2a11cc49c9` | Package OSTree repository for Pages |
-| `actions/deploy-pages` | GitHub Action | `v5.0.0` | `cd2ce8fcbc39b97be8ca5fce6e763baed58fa128` | Direct CDN deployment for GitHub Pages |
 | `dependabot/fetch-metadata` | GitHub Action | `v3.1.0` | `25dd0e34f4fe68f24cc83900b1fe3fe149efef98` | Dependabot PR metadata extraction |
 | `gh` | CLI tool | Pre-installed | Native Go binary | GitHub release publishing |
 

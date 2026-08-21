@@ -18,13 +18,7 @@ flatpak info --show-permissions io.filen.desktop
 echo "=== Verifying Application Launch in Sandbox ==="
 flatpak run --command=true io.filen.desktop
 
-echo "=== Verifying Configured Remotes (Checking Embedded Origin) ==="
-flatpak remotes -d
-
-echo "=== Testing Flatpak Update Mechanism ==="
-flatpak update -y --user --noninteractive io.filen.desktop || true
-
 echo "=== Verifying Clean Uninstallation ==="
 flatpak uninstall -y --user --noninteractive io.filen.desktop
 
-echo "✓ Standalone bundle installation, execution, and update flow verified!"
+echo "✓ Standalone bundle installation, sandbox execution, and removal verified!"
