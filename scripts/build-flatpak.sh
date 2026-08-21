@@ -16,6 +16,7 @@ flatpak-builder \
   --force-clean \
   --disable-cache \
   --install-deps-from=flathub \
+  --user \
   --arch=x86_64 \
   --default-branch=master \
   --disable-rofiles-fuse \
