@@ -160,7 +160,7 @@ All build, test, and automation logic is decoupled into independent script files
 * `scripts/build-flatpak.sh`: Initializes the OSTree repository, compiles the application with `flatpak-builder`, updates static deltas, and generates the standalone `.flatpak` bundle.
 * `scripts/test-bundle-install.sh`: Smoke-tests standalone `.flatpak` bundle installation, permissions, sandbox execution, update polling, and uninstallation.
 * `scripts/test-repo-install.sh`: Tests local OSTree repository installation, execution, delta updates, and uninstallation.
-* `scripts/prepare-pages.sh`: Prepares static site assets (`_site/`) for direct GitHub Pages deployment.
+* `scripts/prepare-pages.sh`: Builds static web pages with the Libreboot Static Site Generator (`lbssg`) and stages the OSTree repository for GitHub Pages deployment.
 * `scripts/publish-release.sh`: Publishes GitHub releases and attaches the Flatpak bundle via `gh`.
 * `scripts/update-metainfo.py`: Adds new release version entries to `io.filen.desktop.metainfo.xml`.
 * `scripts/auto-update.sh`: Orchestrates upstream update polling, version bumping, building, tagging, and releasing.
@@ -186,6 +186,7 @@ This repository uses the following runtime, build, and CI dependencies:
 | `flatpak-builder` | 1.2.0 | Manifest build orchestrator |
 | `desktop-file-utils` | 0.26 | Desktop entry specification validator |
 | `appstream` / `appstream-util` | 0.16 | AppStream metainfo XML validator |
+| `pandoc` | 2.9+ | Markdown to HTML compiler used by `lbssg` |
 | `python3` | 3.8+ | Standard library only, used to verify upstream release checksums in CI |
 
 ### CI container and GitHub Actions dependencies
