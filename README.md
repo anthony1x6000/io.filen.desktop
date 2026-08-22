@@ -61,7 +61,7 @@ You do not need to install anything locally. The workflows run in GitHub-hosted 
 
 ### Method 1: Install from the Flatpak repository (automatic updates)
 
-All repository commits, metadata summaries, and package updates are cryptographically signed with the project's GPG release key (`58F38D1EC0E4D3E64E79DAD81EF364775FB0A85A`).
+All repository commits, metadata summaries, and package updates are cryptographically signed with the project's GPG release key (`B180A10CC12A8DA4E3CB163ED7CBF6DF6B390F1B`).
 
 Add the repository to your local Flatpak installation:
 
