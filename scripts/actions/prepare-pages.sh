@@ -127,7 +127,7 @@ output_html_file = os.path.join(site_dir, "index.html")
 with open(output_html_file, "w", encoding="utf-8") as f:
     f.write(index_html)
 
-# 6. Dynamically write Flatpak repository configuration file with GPG key
+# 6. Dynamically write Flatpak repository & ref configuration files with GPG key
 gpg_line = "gpg-verify=false\n"
 if os.path.exists("filen-public.gpg"):
     with open("filen-public.gpg", "rb") as f:
@@ -143,11 +143,29 @@ Description=Automated Flatpak repository for Filen Desktop hosted via GitHub Pag
 Icon=https://avatars.githubusercontent.com/u/79963625?s=200&v=4
 {gpg_line}"""
 
+flatpakref_content = f"""[Flatpak Ref]
+Name=io.filen.desktop
+Branch=master
+Title=Filen Desktop
+IsRuntime=false
+Url=https://{owner}.github.io/{repo_name}/repo/
+SuggestRemoteName=filen
+RuntimeRepo=https://dl.flathub.org/repo/flathub.flatpakrepo
+Homepage=https://github.com/{repo}
+Comment=Unofficial Flatpak builds of Filen desktop client
+Description=Flatpak packaging for the Filen desktop client
+Icon=https://avatars.githubusercontent.com/u/79963625?s=200&v=4
+{gpg_line}"""
+
 output_repo_file = os.path.join(site_dir, f"{repo_name}.flatpakrepo")
 with open(output_repo_file, "w", encoding="utf-8") as f:
     f.write(flatpakrepo_content)
 
-print(f"✓ Generated {output_html_file} and {output_repo_file}")
+output_ref_file = os.path.join(site_dir, f"{repo_name}.flatpakref")
+with open(output_ref_file, "w", encoding="utf-8") as f:
+    f.write(flatpakref_content)
+
+print(f"✓ Generated {output_html_file}, {output_repo_file}, and {output_ref_file}")
 EOF
 
 touch "$SITE_DIR/.nojekyll"

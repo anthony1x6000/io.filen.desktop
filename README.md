@@ -10,9 +10,13 @@ Flatpak packaging for the Filen desktop client (`io.filen.desktop`).
 
 With repo, you get automatic updates. [CI](https://github.com/anthony1x6000/io.filen.desktop/blob/main/scripts/actions/auto-update.sh) is made to automatically package a new Filen release upstream. 
 
-Add the repository:
+Ensure Flathub and the Filen repository are added:
 
 ```bash
+# Add Flathub for runtime dependencies
+flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+# Add Filen repository
 flatpak remote-add --if-not-exists --user filen https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakrepo
 ```
 
@@ -20,6 +24,12 @@ Install:
 
 ```bash
 flatpak install --user filen io.filen.desktop
+```
+
+Or install in a single command via `.flatpakref`:
+
+```bash
+flatpak install --user https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakref
 ```
 
 And update like usual:
