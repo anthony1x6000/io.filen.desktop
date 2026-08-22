@@ -64,7 +64,7 @@ You do not need to install anything locally. The workflows run in GitHub-hosted 
 Add the repository to your local Flatpak installation:
 
 ```bash
-flatpak remote-add --if-not-exists --user filen https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakrepo
+flatpak remote-add --if-not-exists --user --no-gpg-verify filen https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakrepo
 ```
 
 Install Filen Desktop:

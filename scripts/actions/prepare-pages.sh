@@ -130,6 +130,7 @@ Homepage=https://github.com/{repo}
 Comment=Unofficial Flatpak builds of Filen desktop client
 Description=Automated Flatpak repository for Filen Desktop hosted via GitHub Pages.
 Icon=https://avatars.githubusercontent.com/u/79963625?s=200&v=4
+gpg-verify=false
 """
 
 output_repo_file = os.path.join(site_dir, f"{repo_name}.flatpakrepo")
