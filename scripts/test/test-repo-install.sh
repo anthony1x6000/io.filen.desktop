@@ -4,16 +4,31 @@ set -euo pipefail
 echo "=== Setting up Flathub runtime remote ==="
 flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 
-echo "=== Extracting OSTree Repository Archive ==="
-tar -xzf repo.tar.gz
+if [[ -f repo.tar.gz && ! -d repo ]]; then
+  echo "=== Extracting OSTree Repository Archive ==="
+  tar -xzf repo.tar.gz
+fi
 
-echo "=== Adding Local OSTree Repository Remote ==="
-flatpak remote-add --if-not-exists --user --no-gpg-verify filen-local "file://$(pwd)/repo"
+if [[ ! -d repo ]]; then
+  echo "::error::OSTree repository directory 'repo' not found!"
+  exit 1
+fi
 
-echo "=== Installing Application from Local Repository ==="
-flatpak install -y --user --noninteractive filen-local io.filen.desktop
+REMOTE_NAME="filen-test"
 
-echo "=== Verifying Installation Metadata ==="
+echo "=== Adding OSTree Repository Remote ($REMOTE_NAME) ==="
+flatpak remote-add --if-not-exists --user --no-gpg-verify "$REMOTE_NAME" "file://$(pwd)/repo"
+
+echo "=== Querying Remote Repository for Available Applications ==="
+flatpak remote-ls --user --show-details "$REMOTE_NAME"
+
+echo "=== Inspecting Remote Application Metadata ==="
+flatpak remote-info --user "$REMOTE_NAME" io.filen.desktop
+
+echo "=== Pulling and Installing Application from Repository ==="
+flatpak install -y --user --noninteractive "$REMOTE_NAME" io.filen.desktop
+
+echo "=== Verifying Installation Details ==="
 flatpak info io.filen.desktop
 
 echo "=== Verifying Application Permissions ==="
@@ -22,11 +37,11 @@ flatpak info --show-permissions io.filen.desktop
 echo "=== Verifying Application Launch in Sandbox ==="
 flatpak run --command=true io.filen.desktop
 
-echo "=== Testing Incremental Flatpak Update from Repository ==="
+echo "=== Testing Incremental Pull & Update from Repository ==="
 flatpak update -y --user --noninteractive io.filen.desktop
 
-echo "=== Verifying Clean Uninstallation ==="
+echo "=== Verifying Clean Uninstallation & Remote Cleanup ==="
 flatpak uninstall -y --user --noninteractive io.filen.desktop
-flatpak remote-delete --user filen-local
+flatpak remote-delete --user "$REMOTE_NAME"
 
-echo "✓ OSTree repository installation, execution, and update flow verified!"
+echo "✓ OSTree repository pull, installation, sandbox execution, and update flow verified successfully!"
