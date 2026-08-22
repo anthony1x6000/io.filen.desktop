@@ -11,6 +11,7 @@ if [ "${XDG_SESSION_TYPE:-}" = "wayland" ] || [ -n "${WAYLAND_DISPLAY:-}" ]; the
 fi
 
 # Environment configuration
+unset GTK_MODULES
 export ELECTRON_DISABLE_UPDATER=1
 export ELECTRON_TRASH=gio
 export XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons

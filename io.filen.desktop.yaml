@@ -30,9 +30,6 @@ finish-args:
   - --talk-name=org.kde.kwalletd6
   # Notifications
   - --talk-name=org.freedesktop.Notifications
-  # System tray & Unity progress bar / badge integration
-  - --talk-name=com.canonical.AppMenu.Registrar
-  - --talk-name=com.canonical.Unity
   # Wayland cursor scaling & Trash handling
   - --env=XCURSOR_PATH=/run/host/user-share/icons:/run/host/share/icons
   - --env=ELECTRON_TRASH=gio
