@@ -26,9 +26,9 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Build Flatpak & Create Bundle
-        run: bash scripts/build-flatpak.sh
+        run: bash scripts/build/build-flatpak.sh
 
       - name: Publish GitHub Release
-        run: bash scripts/publish-release.sh io.filen.desktop.flatpak
+        run: bash scripts/build/publish-release.sh io.filen.desktop.flatpak
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

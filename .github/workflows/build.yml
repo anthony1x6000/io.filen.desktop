@@ -26,10 +26,10 @@ jobs:
           sudo apt-get install -y appstream desktop-file-utils appstream-util python3
 
       - name: Validate Metadata
-        run: bash scripts/validate-metadata.sh
+        run: bash scripts/validate/validate-metadata.sh
 
       - name: Verify Upstream Release Checksums
-        run: python3 scripts/verify-checksums.py
+        run: python3 scripts/validate/verify-checksums.py
 
   build:
     name: Build Flatpak
@@ -49,7 +49,7 @@ jobs:
         run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
       - name: Build Flatpak & Create Bundle
-        run: bash scripts/build-flatpak.sh
+        run: bash scripts/build/build-flatpak.sh
 
       - name: Upload Flatpak Bundle Artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -81,4 +81,4 @@ jobs:
           name: io.filen.desktop-x86_64.flatpak
 
       - name: Install & Launch Bundle
-        run: bash scripts/test-bundle-install.sh io.filen.desktop-x86_64.flatpak
+        run: bash scripts/test/test-bundle-install.sh io.filen.desktop-x86_64.flatpak

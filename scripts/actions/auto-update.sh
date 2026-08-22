@@ -13,10 +13,10 @@ if [[ -n "$(git status --porcelain io.filen.desktop.yaml)" ]]; then
   echo "Found new version: $VERSION"
 
   echo "=== Updating AppStream Metainfo ==="
-  python3 scripts/update-metainfo.py "$VERSION"
+  python3 scripts/actions/update-metainfo.py "$VERSION"
 
   echo "=== Building Flatpak Release ==="
-  bash scripts/build-flatpak.sh
+  bash scripts/build/build-flatpak.sh
 
   echo "=== Committing, Tagging, and Releasing ==="
   git config user.name "Anthony"

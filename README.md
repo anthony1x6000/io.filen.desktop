@@ -115,7 +115,7 @@ flatpak run io.filen.desktop
 Or build the standalone `.flatpak` bundle:
 
 ```bash
-bash scripts/build-flatpak.sh
+bash scripts/build/build-flatpak.sh
 ```
 
 ## GitHub Actions workflows
@@ -127,17 +127,25 @@ bash scripts/build-flatpak.sh
 
 ## Repository scripts
 
-All build, test, and automation logic is decoupled into independent script files with zero embedded scripting in manifests or workflows:
+All build, test, validation, and automation logic is organized into categorized subdirectories under `scripts/`:
 
 * `install-filen.sh`: Package extraction, hicolor icon installation, cross-architecture binary stripping, and application installation logic executed during `flatpak-builder`.
-* `scripts/validate-metadata.sh`: Validates desktop entry syntax and AppStream metadata specification compliance.
-* `scripts/verify-checksums.py`: Verifies upstream release sha256 checksums from GitHub against the manifest.
-* `scripts/build-flatpak.sh`: Initializes the repository, compiles the application with `flatpak-builder`, and generates the standalone `.flatpak` distribution bundle.
-* `scripts/test-bundle-install.sh`: Smoke-tests standalone `.flatpak` bundle installation, permissions, sandbox execution, and uninstallation.
-* `scripts/publish-release.sh`: Publishes GitHub releases and attaches the Flatpak bundle via `gh`.
-* `scripts/update-metainfo.py`: Adds new release version entries to `io.filen.desktop.metainfo.xml`.
-* `scripts/auto-update.sh`: Orchestrates upstream update polling, version bumping, building, tagging, and releasing.
-* `scripts/auto-merge-dependabot.sh`: Approves and enables auto-merge on validated Dependabot PRs.
+
+### Actions & automation (`scripts/actions/`)
+* `scripts/actions/auto-update.sh`: Orchestrates upstream update polling, version bumping, building, tagging, and releasing.
+* `scripts/actions/update-metainfo.py`: Adds new release version entries to `io.filen.desktop.metainfo.xml`.
+* `scripts/actions/auto-merge-dependabot.sh`: Approves and enables auto-merge on validated Dependabot PRs.
+
+### Build & release (`scripts/build/`)
+* `scripts/build/build-flatpak.sh`: Initializes the repository, compiles the application with `flatpak-builder`, and generates the standalone `.flatpak` distribution bundle.
+* `scripts/build/publish-release.sh`: Publishes GitHub releases and attaches the Flatpak bundle via `gh`.
+
+### Testing (`scripts/test/`)
+* `scripts/test/test-bundle-install.sh`: Smoke-tests standalone `.flatpak` bundle installation, permissions, sandbox execution, and uninstallation.
+
+### Validation (`scripts/validate/`)
+* `scripts/validate/validate-metadata.sh`: Validates desktop entry syntax and AppStream metadata specification compliance.
+* `scripts/validate/verify-checksums.py`: Verifies upstream release sha256 checksums from GitHub against the manifest.
 
 ## Dependencies
 
