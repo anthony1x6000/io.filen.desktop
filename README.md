@@ -56,6 +56,28 @@ You do not need to install anything locally. The workflows run in GitHub-hosted 
 
 ## Installation
 
+### Method 1: Install from the Flatpak repository (automatic updates)
+
+Add the repository to your local Flatpak installation:
+
+```bash
+flatpak remote-add --if-not-exists --user filen https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakrepo
+```
+
+Install Filen Desktop:
+
+```bash
+flatpak install --user filen io.filen.desktop
+```
+
+Update at any time with your regular Flatpak updates:
+
+```bash
+flatpak update
+```
+
+### Method 2: Install from standalone `.flatpak` bundle
+
 Download the latest `io.filen.desktop.flatpak` single-file bundle from [GitHub Releases](https://github.com/anthony1x6000/io.filen.desktop/releases), then install:
 
 ```bash
@@ -73,6 +95,15 @@ Run the application:
 ```bash
 flatpak run io.filen.desktop
 ```
+
+## GitHub Pages repository hosting
+
+To enable the hosted Flatpak repository for automatic updates:
+
+1. Open repository settings at `Settings -> Pages` (`https://github.com/anthony1x6000/io.filen.desktop/settings/pages`).
+2. Under **Build and deployment**, set **Source** to **GitHub Actions**.
+
+Once enabled, CI automatically compiles and deploys the static OSTree repository on every push to `main` without having to manually manage website files.
 
 ## Sandbox permissions and Flatseal
 
@@ -120,7 +151,7 @@ bash scripts/build/build-flatpak.sh
 
 ## GitHub Actions workflows
 
-* `.github/workflows/build.yml`: Verifies upstream deb SHA256 hashes against `io.filen.desktop.yaml`, checks AppStream metadata, builds the Flatpak package, and verifies local bundle installation and execution.
+* `.github/workflows/build.yml`: Verifies upstream deb SHA256 hashes against `io.filen.desktop.yaml`, checks AppStream metadata, builds the Flatpak package, verifies local bundle and repository installations, and deploys the OSTree repository to GitHub Pages on pushes to `main`.
 * `.github/workflows/release.yml`: Builds and uploads a standalone `.flatpak` bundle to GitHub Releases when you push a version tag (`v*`).
 * `.github/workflows/auto-update-and-release.yml`: Checks for new upstream releases from Filen daily at midnight UTC via `flatpak-external-data-checker`, bumps version numbers and checksums, and tags new releases.
 * `.github/workflows/dependabot-auto-merge.yml`: Automatically merges Dependabot dependency updates after CI tests pass.
@@ -133,6 +164,7 @@ All build, test, validation, and automation logic is organized into categorized 
 
 ### Actions & automation (`scripts/actions/`)
 * `scripts/actions/auto-update.sh`: Orchestrates upstream update polling, version bumping, building, tagging, and releasing.
+* `scripts/actions/prepare-pages.sh`: Prepares static site assets (`_site/`) with OSTree repository metadata for GitHub Pages deployment.
 * `scripts/actions/update-metainfo.py`: Adds new release version entries to `io.filen.desktop.metainfo.xml`.
 * `scripts/actions/auto-merge-dependabot.sh`: Approves and enables auto-merge on validated Dependabot PRs.
 
@@ -142,6 +174,7 @@ All build, test, validation, and automation logic is organized into categorized 
 
 ### Testing (`scripts/test/`)
 * `scripts/test/test-bundle-install.sh`: Smoke-tests standalone `.flatpak` bundle installation, permissions, sandbox execution, and uninstallation.
+* `scripts/test/test-repo-install.sh`: Tests local OSTree repository installation, execution, delta updates, and uninstallation.
 
 ### Validation (`scripts/validate/`)
 * `scripts/validate/validate-metadata.sh`: Validates desktop entry syntax and AppStream metadata specification compliance.

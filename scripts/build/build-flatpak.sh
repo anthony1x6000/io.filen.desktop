@@ -28,6 +28,10 @@ flatpak build-update-repo --generate-static-deltas repo
 
 echo "=== Creating Single-File Distribution Bundle ==="
 flatpak build-bundle repo io.filen.desktop-x86_64.flatpak io.filen.desktop \
-  --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+  --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo \
+  --repo-url=https://anthony1x6000.github.io/io.filen.desktop/repo
 
 cp io.filen.desktop-x86_64.flatpak io.filen.desktop.flatpak
+
+echo "=== Compressing OSTree Repo for Deployment (Max Compression) ==="
+GZIP=-9 tar -czf repo.tar.gz repo
