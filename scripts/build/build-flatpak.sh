@@ -15,14 +15,15 @@ GPG_SIGN_REPO_ARGS=()
 GPG_BUNDLE_ARGS=()
 
 if [[ -n "${GPG_PRIVATE_KEY:-}" ]]; then
-  echo "=== Configuring Headless GPG Environment ==="
-  export GNUPGHOME="$(mktemp -d)"
+  echo "=== Configuring GPG Signing Environment ==="
+  export GNUPGHOME="${HOME:-/root}/.gnupg"
+  mkdir -p "$GNUPGHOME"
   chmod 700 "$GNUPGHOME"
 
-  # Configure gpg and gpg-agent for headless, batch loopback pinentry
+  # Configure gpg and gpg-agent for non-interactive container environments
   cat << 'EOF' > "$GNUPGHOME/gpg.conf"
-pinentry-mode loopback
 use-agent
+pinentry-mode loopback
 batch
 no-tty
 EOF
@@ -34,21 +35,21 @@ max-cache-ttl 86400
 default-cache-ttl 86400
 EOF
 
-  # Start gpg-agent
-  gpg-connect-agent --homedir "$GNUPGHOME" reloadagent /bye || true
-  gpg-connect-agent --homedir "$GNUPGHOME" updatestartuptty /bye || true
+  # Restart gpg-agent with new configuration
+  gpgconf --kill all 2>/dev/null || true
+  gpgconf --launch gpg-agent 2>/dev/null || true
 
-  # Import secret key without interactive pinentry prompts
-  echo "$GPG_PRIVATE_KEY" | gpg --batch --pinentry-mode loopback --import
+  # Import secret key with loopback pinentry support
+  echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE:-}" --import
 
   GPG_KEY_ID=$(gpg --list-secret-keys --with-colons | grep -m1 '^fpr:' | cut -d: -f10)
   echo "Loaded GPG Signing Key: $GPG_KEY_ID"
 
-  # Trust key unconditionally in this keyring
-  echo "${GPG_KEY_ID}:6:" | gpg --import-ownertrust || true
+  # Set ultimate trust for signing
+  echo "${GPG_KEY_ID}:6:" | gpg --import-ownertrust 2>/dev/null || true
 
-  GPG_SIGN_BUILD_ARGS=(--gpg-sign="$GPG_KEY_ID" --gpg-homedir="$GNUPGHOME")
-  GPG_SIGN_REPO_ARGS=(--gpg-sign="$GPG_KEY_ID" --gpg-homedir="$GNUPGHOME")
+  GPG_SIGN_BUILD_ARGS=(--gpg-sign="$GPG_KEY_ID")
+  GPG_SIGN_REPO_ARGS=(--gpg-sign="$GPG_KEY_ID")
 fi
 
 if [[ -f filen-public.gpg ]]; then
