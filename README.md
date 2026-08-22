@@ -55,4 +55,4 @@ flatpak override --user --filesystem=~/Documents io.filen.desktop
 # AI use and credit
 - Google antigravity was used to create this project. 
   - Scripts used are kept inside of [scripts/](https://github.com/anthony1x6000/io.filen.desktop/tree/main/scripts), so you can audit the code for yourself.
-- Builds are based off https://github.com/flathub/com.visualstudio.code.
+- Based off https://github.com/flathub/com.visualstudio.code.
