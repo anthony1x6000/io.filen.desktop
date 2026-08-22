@@ -15,37 +15,74 @@ GPG_SIGN_REPO_ARGS=()
 GPG_BUNDLE_ARGS=()
 
 if [[ -n "${GPG_PRIVATE_KEY:-}" ]]; then
-  echo "=== Configuring GPG Signing Environment ==="
+  echo "=== Configuring Automated GPG Pinentry Environment ==="
   export GNUPGHOME="${HOME:-/root}/.gnupg"
   mkdir -p "$GNUPGHOME"
   chmod 700 "$GNUPGHOME"
 
-  # Configure gpg and gpg-agent for non-interactive container environments
-  cat << 'EOF' > "$GNUPGHOME/gpg.conf"
+  # Store passphrase securely for pinentry helper
+  if [[ -n "${GPG_PASSPHRASE:-}" ]]; then
+    printf "%s" "$GPG_PASSPHRASE" > "$GNUPGHOME/.passphrase"
+    chmod 600 "$GNUPGHOME/.passphrase"
+  fi
+
+  # Create automated Assuan pinentry responder
+  PINENTRY_AUTO="/tmp/pinentry-auto"
+  cat << 'EOF' > "$PINENTRY_AUTO"
+#!/usr/bin/env python3
+import os
+import sys
+
+passphrase = os.environ.get("GPG_PASSPHRASE", "")
+pass_file = os.path.expanduser("~/.gnupg/.passphrase")
+if not passphrase and os.path.exists(pass_file):
+    try:
+        with open(pass_file, "r", encoding="utf-8") as f:
+            passphrase = f.read().rstrip("\r\n")
+    except Exception:
+        pass
+
+print("OK Pleased to meet you", flush=True)
+for line in sys.stdin:
+    line = line.strip()
+    if line.startswith("GETPIN"):
+        print(f"D {passphrase}", flush=True)
+        print("OK", flush=True)
+    elif line.startswith("BYE"):
+        print("OK", flush=True)
+        break
+    else:
+        print("OK", flush=True)
+EOF
+  chmod 755 "$PINENTRY_AUTO"
+
+  # Configure gpg and gpg-agent to use automated pinentry
+  cat << EOF > "$GNUPGHOME/gpg.conf"
 use-agent
 pinentry-mode loopback
 batch
 no-tty
 EOF
 
-  cat << 'EOF' > "$GNUPGHOME/gpg-agent.conf"
+  cat << EOF > "$GNUPGHOME/gpg-agent.conf"
+pinentry-program $PINENTRY_AUTO
 allow-loopback-pinentry
 allow-preset-passphrase
 max-cache-ttl 86400
 default-cache-ttl 86400
 EOF
 
-  # Restart gpg-agent with new configuration
+  # Stop any stale agents and start fresh agent daemon with pinentry provider
   gpgconf --kill all 2>/dev/null || true
-  gpgconf --launch gpg-agent 2>/dev/null || true
+  gpg-agent --daemon --pinentry-program "$PINENTRY_AUTO" --homedir "$GNUPGHOME" 2>/dev/null || true
 
-  # Import secret key with loopback pinentry support
+  # Import secret key
   echo "$GPG_PRIVATE_KEY" | gpg --batch --yes --pinentry-mode loopback --passphrase "${GPG_PASSPHRASE:-}" --import
 
   GPG_KEY_ID=$(gpg --list-secret-keys --with-colons | grep -m1 '^fpr:' | cut -d: -f10)
   echo "Loaded GPG Signing Key: $GPG_KEY_ID"
 
-  # Set ultimate trust for signing
+  # Set ultimate trust
   echo "${GPG_KEY_ID}:6:" | gpg --import-ownertrust 2>/dev/null || true
 
   GPG_SIGN_BUILD_ARGS=(--gpg-sign="$GPG_KEY_ID")
