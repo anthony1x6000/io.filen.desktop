@@ -26,13 +26,7 @@ Install:
 flatpak install --user filen io.filen.desktop
 ```
 
-Or install in a single command via `.flatpakref`:
-
-```bash
-flatpak install --user https://anthony1x6000.github.io/io.filen.desktop/io.filen.desktop.flatpakref
-```
-
-And update like usual:
+With the repo added, you can check for updates with:
 
 ```bash
 flatpak update
