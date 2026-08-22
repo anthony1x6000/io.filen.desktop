@@ -8,8 +8,13 @@ if [ -f repo.tar.gz ]; then
   tar -xzf repo.tar.gz -C "$SITE_DIR/"
 fi
 
+if [ -f filen-public.gpg ]; then
+  cp filen-public.gpg "$SITE_DIR/"
+fi
+
 echo "=== Dynamically pulling raw README.md and rendering via GitHub Markdown REST API ==="
 python3 - << 'EOF' "$SITE_DIR"
+import base64
 import json
 import os
 import re
@@ -122,7 +127,13 @@ output_html_file = os.path.join(site_dir, "index.html")
 with open(output_html_file, "w", encoding="utf-8") as f:
     f.write(index_html)
 
-# 6. Dynamically write Flatpak repository configuration file
+# 6. Dynamically write Flatpak repository configuration file with GPG key
+gpg_line = "gpg-verify=false\n"
+if os.path.exists("filen-public.gpg"):
+    with open("filen-public.gpg", "rb") as f:
+        gpg_b64 = base64.b64encode(f.read()).decode("ascii")
+    gpg_line = f"GPGKey={gpg_b64}\n"
+
 flatpakrepo_content = f"""[Flatpak Repo]
 Title=Filen Desktop
 Url=https://{owner}.github.io/{repo_name}/repo/
@@ -130,8 +141,7 @@ Homepage=https://github.com/{repo}
 Comment=Unofficial Flatpak builds of Filen desktop client
 Description=Automated Flatpak repository for Filen Desktop hosted via GitHub Pages.
 Icon=https://avatars.githubusercontent.com/u/79963625?s=200&v=4
-gpg-verify=false
-"""
+{gpg_line}"""
 
 output_repo_file = os.path.join(site_dir, f"{repo_name}.flatpakrepo")
 with open(output_repo_file, "w", encoding="utf-8") as f:

@@ -15,9 +15,13 @@ if [[ ! -d repo ]]; then
 fi
 
 REMOTE_NAME="filen-test"
+GPG_REMOTE_ARGS=(--no-gpg-verify)
+if [[ -f filen-public.gpg ]]; then
+  GPG_REMOTE_ARGS=(--gpg-import=filen-public.gpg)
+fi
 
 echo "=== Adding OSTree Repository Remote ($REMOTE_NAME) ==="
-flatpak remote-add --if-not-exists --user --no-gpg-verify "$REMOTE_NAME" "file://$(pwd)/repo"
+flatpak remote-add --if-not-exists --user "${GPG_REMOTE_ARGS[@]}" "$REMOTE_NAME" "file://$(pwd)/repo"
 
 echo "=== Querying Remote Repository for Available Applications ==="
 flatpak remote-ls --user --show-details "$REMOTE_NAME"

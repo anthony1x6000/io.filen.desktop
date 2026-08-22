@@ -27,6 +27,8 @@ jobs:
 
       - name: Build Flatpak & Create Bundle
         run: bash scripts/build/build-flatpak.sh
+        env:
+          GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
 
       - name: Publish GitHub Release
         run: bash scripts/build/publish-release.sh io.filen.desktop.flatpak
