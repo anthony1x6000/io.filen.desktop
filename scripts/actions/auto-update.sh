@@ -8,9 +8,22 @@ DRY_RUN="${AUTO_UPDATE_DRY_RUN:-0}"
 UPSTREAM_REPO="FilenCloudDienste/filen-desktop"
 CI_WORKFLOW="Build & Validate Flatpak"
 CI_WORKFLOW_FILE="build.yml"
+SELF_WORKFLOW_FILE="auto-update-and-release.yml"
 
 tag_exists() { git rev-parse -q --verify "refs/tags/$1" >/dev/null; }
 release_exists() { gh release view "$1" >/dev/null 2>&1; }
+
+# GitHub disables scheduled workflows in public repos after 60 days without
+# repository activity. Re-enabling this workflow during each scheduled run
+# keeps the release checker alive without adding meaningless commits.
+keep_schedule_enabled() {
+  [[ "${GITHUB_EVENT_NAME:-}" == "schedule" ]] || return 0
+  if [[ -z "${GITHUB_REPOSITORY:-}" ]] || ! gh api -X PUT \
+      "repos/$GITHUB_REPOSITORY/actions/workflows/$SELF_WORKFLOW_FILE/enable" >/dev/null; then
+    echo "::error::could not re-enable the daily workflow; the schedule may stop" >&2
+    return 1
+  fi
+}
 
 # Latest upstream tag, without the leading v. Empty when GitHub cannot be
 # reached, which is not fatal: the build below reports its own failures.
@@ -63,6 +76,9 @@ dispatch_and_watch_ci() {
 # needs this and it is a no-op once the workspace is already trusted.
 git config --global --add safe.directory "$(pwd)" 2>/dev/null || true
 
+echo "=== Keeping the daily schedule enabled ==="
+keep_schedule_enabled
+
 echo "=== Installing flatpak-external-data-checker ==="
 flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
 flatpak install -y --user --noninteractive flathub org.flathub.flatpak-external-data-checker
@@ -103,6 +119,11 @@ if [[ "$NEW_VERSION" == 0 ]] && tag_exists "$TAG" && release_exists "$TAG"; then
   if [[ -n "$UPSTREAM" && "$UPSTREAM" != "$VERSION" ]]; then
     echo "::error::upstream is at v$UPSTREAM but the manifest pins v$VERSION; the data checker did not pick the release up" >&2
     exit 1
+  fi
+
+  if [[ "$DRY_RUN" != 0 ]]; then
+    echo "=== Dry run: no updates found; nothing published ==="
+    exit 0
   fi
 
   echo "No updates found; re-verifying the build and Pages deploy"
