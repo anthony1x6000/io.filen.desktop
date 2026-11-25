@@ -33,7 +33,14 @@ case "$args" in
     fi
     ;;
   *"-X POST"*"/pages/deployments"*)
+    n=$(( $(cat "$STUB_DIR/create_calls" 2>/dev/null || echo 0) + 1 ))
+    printf '%s\n' "$n" > "$STUB_DIR/create_calls"
     cat > "$STUB_DIR/post-body.json"
+    if [[ "${STUB_CREATE_ALWAYS_FAIL:-0}" == 1 ]] || (( n <= ${STUB_CREATE_FAILS:-0} )); then
+      # What gh prints when the API answers 5xx with an empty body.
+      echo "unexpected end of JSON input" >&2
+      exit 1
+    fi
     printf '{"id": 999, "status": "queued", "page_url": "https://example.test/io.filen.desktop/"}\n'
     ;;
   *"/pages/deployments/"*)
@@ -68,7 +75,8 @@ run_deploy() { # extra env via caller; logs to $WORK/last.log
 }
 
 reset_state() {
-  rm -f "$STUB_DIR/artifact_calls" "$STUB_DIR/status_calls" "$STUB_DIR/post-body.json"
+  rm -f "$STUB_DIR/artifact_calls" "$STUB_DIR/status_calls" "$STUB_DIR/create_calls" \
+        "$STUB_DIR/post-body.json"
 }
 
 export GITHUB_REPOSITORY=anthony1x6000/io.filen.desktop
@@ -129,6 +137,26 @@ if STATUS_WAIT_ATTEMPTS=2 STUB_STATUS_SEQUENCE="queued queued" run_deploy; then
 fi
 grep -q "did not succeed" "$WORK/last.log" || fail "should explain the unfinished deployment"
 ok "unfinished deployment reported"
+
+# --- transient failure creating the deployment -----------------------------
+echo "scenario: a 5xx while creating the deployment is retried"
+reset_state
+: > "$GITHUB_OUTPUT"
+STUB_CREATE_FAILS=2 run_deploy || { cat "$WORK/last.log" >&2; fail "deploy should recover from a transient create failure"; }
+grep -q "creating the Pages deployment failed (attempt 1/5)" "$WORK/last.log" \
+  || fail "should log the transient create failure"
+ok "transient create failure retried and recovered"
+
+# --- creation keeps failing ------------------------------------------------
+echo "scenario: the deployment creation gives up after repeated 5xx"
+reset_state
+: > "$GITHUB_OUTPUT"
+if STUB_CREATE_ALWAYS_FAIL=1 run_deploy; then
+  fail "deploy must fail when creating the deployment keeps failing"
+fi
+grep -q "failed after 5 attempt(s)" "$WORK/last.log" \
+  || fail "should report that creation was retried and gave up"
+ok "repeated create failures reported"
 
 # --- no OIDC token available ----------------------------------------------
 echo "scenario: missing OIDC credentials fail with a clear message"
