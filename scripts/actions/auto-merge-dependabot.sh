@@ -15,13 +15,35 @@ SELF_CHECK_NAME="${AUTO_MERGE_CHECK_NAME:-Auto-merge Dependabot PRs}"
 # A full build takes 10-15 minutes. Allow half an hour for runner queueing too.
 CHECKS_WAIT_ATTEMPTS="${CHECKS_WAIT_ATTEMPTS:-90}"
 POLL_SECONDS="${POLL_SECONDS:-20}"
+GH_RETRY_ATTEMPTS="${GH_RETRY_ATTEMPTS:-5}"
+GH_RETRY_SECONDS="${GH_RETRY_SECONDS:-5}"
+
+retry_gh() {
+  local attempt delay="$GH_RETRY_SECONDS"
+  for attempt in $(seq 1 "$GH_RETRY_ATTEMPTS"); do
+    if "$@"; then
+      return 0
+    fi
+    if (( attempt < GH_RETRY_ATTEMPTS )); then
+      sleep "$delay"
+      delay=$((delay * 2))
+    fi
+  done
+  return 1
+}
 
 if [[ -z "$PR_URL" ]]; then
   echo "::error::PR_URL not specified"
   exit 1
 fi
 
-head_sha="$(gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)"
+RERUN_LOG="$(mktemp)"
+trap 'rm -f "$RERUN_LOG"' EXIT
+
+head_sha="$(retry_gh gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)" || {
+  echo "::error::could not resolve the PR head commit" >&2
+  exit 1
+}
 if [[ ! "$head_sha" =~ ^[0-9a-f]{40}$ ]]; then
   echo "::error::could not resolve the PR head commit" >&2
   exit 1
@@ -37,8 +59,12 @@ gh pr review --approve "$PR_URL" || true
 echo "=== Waiting for the checks on $PR_URL ($head_sha) ==="
 count=0
 pending=0
+green=0
 for attempt in $(seq 1 "$CHECKS_WAIT_ATTEMPTS"); do
-  checks="$(gh api "repos/$REPO/commits/$head_sha/check-runs" --jq '.check_runs')"
+  if ! checks="$(retry_gh gh api "repos/$REPO/commits/$head_sha/check-runs" --jq '.check_runs')"; then
+    echo "::error::could not read the checks on $PR_URL after ${GH_RETRY_ATTEMPTS} attempt(s)" >&2
+    exit 1
+  fi
   checks="$(jq --arg self "$SELF_CHECK_NAME" '[.[] | select(.name != $self)]' <<<"$checks")"
   count="$(jq 'length' <<<"$checks")"
 
@@ -51,16 +77,54 @@ for attempt in $(seq 1 "$CHECKS_WAIT_ATTEMPTS"); do
     .conclusion != "success" and .conclusion != "neutral" and
     .conclusion != "skipped" and .conclusion != null)] | length' <<<"$checks")"
   if (( failed > 0 )); then
-    echo "::error::checks failed on $PR_URL; leaving it for a human" >&2
     jq -r '.[] | select(.status == "completed" and
       .conclusion != "success" and .conclusion != "neutral" and
       .conclusion != "skipped" and .conclusion != null) |
       "\(.name): \(.conclusion)"' <<<"$checks" >&2
-    exit 1
+
+    # Runner/network failures are transient. Give each failed workflow run one
+    # rerun and watch it; a deterministic dependency breakage fails again and
+    # remains terminal instead of looping forever.
+    run_ids="$(jq -r '[.[] | select(.status == "completed" and
+      .conclusion != "success" and .conclusion != "neutral" and
+      .conclusion != "skipped" and .conclusion != null) |
+      (.details_url // "" | try (capture("/actions/runs/(?<id>[0-9]+)").id) catch empty)] |
+      unique[]' <<<"$checks")"
+    if [[ -z "$run_ids" ]]; then
+      echo "::error::checks failed on $PR_URL and cannot be rerun automatically" >&2
+      exit 1
+    fi
+
+    reran=0
+    while IFS= read -r run_id; do
+      [[ -n "$run_id" ]] || continue
+      grep -qx "$run_id" "$RERUN_LOG" && continue
+      echo "=== Rerunning failed workflow run $run_id once ==="
+      retry_gh gh run rerun "$run_id" --failed || {
+        echo "::error::could not rerun workflow run $run_id" >&2
+        exit 1
+      }
+      printf '%s\n' "$run_id" >> "$RERUN_LOG"
+      retry_gh gh run watch "$run_id" --exit-status --interval 20 || {
+        echo "::error::rerun of $run_id failed; leaving $PR_URL for a human" >&2
+        exit 1
+      }
+      reran=1
+    done <<<"$run_ids"
+
+    if (( reran == 0 )); then
+      echo "::error::checks still fail on $PR_URL after their one rerun" >&2
+      exit 1
+    fi
+    sleep "$POLL_SECONDS"
+    continue
   fi
 
   pending="$(jq '[.[] | select(.status != "completed" or .conclusion == null)] | length' <<<"$checks")"
-  (( pending == 0 )) && break
+  if (( pending == 0 )); then
+    green=1
+    break
+  fi
   sleep "$POLL_SECONDS"
 done
 
@@ -68,14 +132,17 @@ if (( count == 0 )); then
   echo "::error::no checks appeared on $PR_URL after ${CHECKS_WAIT_ATTEMPTS} attempt(s)" >&2
   exit 1
 fi
-if (( pending > 0 )); then
-  echo "::error::checks on $PR_URL did not finish after ${CHECKS_WAIT_ATTEMPTS} attempt(s)" >&2
+if (( green == 0 )); then
+  echo "::error::checks on $PR_URL did not finish successfully after ${CHECKS_WAIT_ATTEMPTS} attempt(s)" >&2
   exit 1
 fi
 
 # A synchronize push can land after the checks went green. GitHub rejects the
 # merge if the head moved; its own run will then wait for the new checks.
-current_sha="$(gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)"
+current_sha="$(retry_gh gh pr view "$PR_URL" --json headRefOid --jq .headRefOid)" || {
+  echo "::error::could not re-check the PR head before merging" >&2
+  exit 1
+}
 if [[ "$current_sha" != "$head_sha" ]]; then
   echo "::error::PR head changed from $head_sha to $current_sha; waiting for the new run" >&2
   exit 1

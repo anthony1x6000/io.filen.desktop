@@ -14,6 +14,13 @@ GPG_SIGN_BUILD_ARGS=()
 GPG_SIGN_REPO_ARGS=()
 GPG_BUNDLE_ARGS=()
 
+# Pull requests (including Dependabot) have no release secret and may build
+# unsigned. Anything published from main or a release tag must fail closed.
+if [[ -z "${GPG_PRIVATE_KEY:-}" && "${REQUIRE_SIGNING:-0}" != 0 ]]; then
+  echo "::error::release signing is required but GPG_PRIVATE_KEY is missing" >&2
+  exit 1
+fi
+
 if [[ -n "${GPG_PRIVATE_KEY:-}" ]]; then
   echo "=== Configuring GPG Signing Environment ==="
   export GNUPGHOME="${HOME:-/root}/.gnupg"

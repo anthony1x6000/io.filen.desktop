@@ -47,6 +47,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          REQUIRE_SIGNING: '1'
           AUTO_UPDATE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
 
   # Nobody watches the Actions tab here. A separate lightweight job still runs
@@ -60,11 +61,13 @@ jobs:
       contents: read
       issues: write
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
       - name: Report Pipeline Outcome
-        run: bash scripts/actions/report-pipeline-outcome.sh "${{ needs.update-and-release.result }}"
+        # Fetch the reporter from the pinned commit instead of checking out the
+        # repository, so a checkout failure cannot take reporting down too.
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/scripts/actions/report-pipeline-outcome.sh?ref=$GITHUB_SHA" --jq .content \
+            | base64 --decode \
+            | bash -s -- "${{ needs.update-and-release.result }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PIPELINE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
