@@ -471,6 +471,7 @@ stale="$(new_workspace stale-incomplete)"
 stale_version="$(manifest_version "$stale/ws")"
 export STUB_LATEST_VERSION="$stale_version"
 export STUB_UPSTREAM_TAG=9.9.9
+rm -f "$STUB_RELEASES/v$stale_version"
 : > "$STUB_LOG/gh.calls"
 if ( cd "$stale/ws" && bash scripts/actions/auto-update.sh ) > "$WORK/last.log" 2>&1; then
   fail "upstream drift must fail before publishing the stale pinned version"
