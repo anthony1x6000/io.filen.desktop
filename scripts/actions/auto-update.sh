@@ -89,4 +89,13 @@ if ! release_exists "$TAG"; then
   gh release create "$TAG" "$BUNDLE" --title "$TAG" --generate-notes
 fi
 
+# The commit and tag above are pushed with GITHUB_TOKEN, and pushes made with it
+# start no workflows. Without this the Pages OSTree repository, which is what
+# `flatpak update` actually pulls, would stay on the previous release.
+echo "=== Triggering Build & Pages Deploy for $TAG ==="
+if ! gh workflow run "Build & Validate Flatpak" --ref main; then
+  echo "::error::could not dispatch the build/deploy workflow; Pages will lag behind $TAG" >&2
+  exit 1
+fi
+
 echo "✓ Successfully updated, built, and published release $TAG!"
