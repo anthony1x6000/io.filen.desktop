@@ -15,8 +15,8 @@ TITLE="Auto update & release pipeline is failing"
 RUN_URL="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}/actions/runs/${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
 
 open_issue() {
-  gh issue list --state open --limit 50 --search "in:title $TITLE" \
-    --json number,title --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty"
+  gh issue list --state open --limit 100 --json number,title \
+    --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty"
 }
 
 issue="$(open_issue)"

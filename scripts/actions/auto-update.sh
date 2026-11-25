@@ -24,9 +24,14 @@ upstream_version() {
 # run is green, so follow it instead of firing and forgetting: a red run is
 # otherwise invisible in an unattended repository.
 dispatch_and_watch_ci() {
-  local before="" run_id="" attempt
-  before="$(gh run list --workflow "$CI_WORKFLOW_FILE" --event workflow_dispatch --limit 1 \
-    --json databaseId --jq '.[0].databaseId // 0' 2>/dev/null || echo 0)"
+  local before="" run_id="" attempt sha
+  sha="$(git rev-parse HEAD)"
+
+  if ! before="$(gh run list --workflow "$CI_WORKFLOW_FILE" --event workflow_dispatch --limit 1 \
+      --json databaseId --jq '.[0].databaseId // 0' 2>/dev/null)"; then
+    echo "::error::could not list workflow runs, so the dispatched run cannot be followed" >&2
+    return 1
+  fi
 
   if ! gh workflow run "$CI_WORKFLOW" --ref main; then
     echo "::error::could not dispatch the build/deploy workflow; Pages will lag behind $TAG" >&2
@@ -35,7 +40,8 @@ dispatch_and_watch_ci() {
 
   for attempt in $(seq 1 "${CI_WAIT_ATTEMPTS:-24}"); do
     run_id="$(gh run list --workflow "$CI_WORKFLOW_FILE" --event workflow_dispatch --limit 5 \
-      --json databaseId --jq "[.[] | select(.databaseId > $before)][0].databaseId // empty" \
+      --json databaseId,headSha \
+      --jq "[.[] | select(.databaseId > $before and .headSha == \"$sha\")][0].databaseId // empty" \
       2>/dev/null || true)"
     [[ -n "$run_id" ]] && break
     sleep "${POLL_SECONDS:-5}"
