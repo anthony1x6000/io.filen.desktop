@@ -12,6 +12,8 @@ on:
 
 permissions:
   contents: write
+  # Needed to dispatch the build/deploy workflow for the released commit.
+  actions: write
 
 jobs:
   update-and-release:

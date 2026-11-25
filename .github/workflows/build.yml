@@ -37,6 +37,9 @@ jobs:
       - name: Test Auto-Update Pipeline
         run: bash scripts/test/test-auto-update.sh
 
+      - name: Test Pages Deployment
+        run: bash scripts/test/test-deploy-pages.sh
+
       - name: Verify Upstream Release Checksums
         run: python3 scripts/validate/verify-checksums.py
 
@@ -131,7 +134,12 @@ jobs:
     name: Deploy OSTree Repository to GitHub Pages
     runs-on: ubuntu-latest
     needs: [build, test-bundle-install, test-repo-install]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    # workflow_dispatch is how an auto-update release reaches Pages: the
+    # auto-updater pushes with GITHUB_TOKEN, and such pushes start no workflows.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -159,25 +167,12 @@ jobs:
         with:
           path: _site/
 
-      # The run's artifact listing is eventually consistent, so a deploy fired
-      # seconds after the upload can see the run's other artifacts but not this
-      # one and fail with 'No artifacts named "github-pages" were found'.
-      - name: Wait for Pages Artifact to Be Visible
-        run: |
-          for attempt in $(seq 1 24); do
-            if gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
-                 --jq '.artifacts[].name' 2>/dev/null | grep -qx 'github-pages'; then
-              echo "Pages artifact visible after ${attempt} attempt(s)"
-              exit 0
-            fi
-            echo "Pages artifact not listed yet (attempt ${attempt}/24)"
-            sleep 5
-          done
-          echo "::error::Pages artifact never became visible in run ${GITHUB_RUN_ID}"
-          exit 1
+      # deploy-pages v5 resolves the artifact through the artifact service,
+      # which lags the upload and intermittently reports 'No artifacts named
+      # "github-pages"'. This drives the Pages deployment API directly.
+      - name: Deploy to GitHub Pages
+        id: deployment
+        run: bash scripts/actions/deploy-pages.sh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@368f82528645a54fb793d4d04e342629a3f51346 # v5.0.1
