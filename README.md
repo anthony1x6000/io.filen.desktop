@@ -8,7 +8,7 @@ Flatpak packaging for the Filen desktop client (`io.filen.desktop`).
 
 ### Install from repo
 
-With repo, you get automatic updates. [CI](https://github.com/anthony1x6000/io.filen.desktop/blob/main/scripts/actions/auto-update.sh) is made to automatically package a new Filen release upstream. 
+With repo, you get automatic updates. [CI](https://github.com/anthony1x6000/io.filen.desktop/blob/main/scripts/actions/auto-update.sh) is made to automatically package a new Filen release upstream.
 
 Ensure Flathub and the Filen repository are added:
 
@@ -44,19 +44,28 @@ flatpak install --user https://github.com/anthony1x6000/io.filen.desktop/release
 flatpak run io.filen.desktop
 ```
 
-## Default permissionss
+## Default permissions
 
 - `~/Downloads`
 - `~/.var/app/io.filen.desktop/`
 
-If you want more directories, use [Flatseal](https://flathub.org/en/apps/com.github.tchx84.Flatseal) and add new directories. 
+If you want more directories, use [Flatseal](https://flathub.org/en/apps/com.github.tchx84.Flatseal) and add new directories.
 
-You can also use CLI: 
+You can also use CLI:
 ```bash
 flatpak override --user --filesystem=~/Documents io.filen.desktop
 ```
 
+## Repository layout
+
+- `io.filen.desktop.yaml` — Flatpak manifest: upstream release URL, checksum and the `filen` build module.
+- `scripts/build/` — Flatpak build, the `install-filen.sh` build step and release publishing.
+- `scripts/launcher/` — `filen.sh`, installed as the app entry point `/app/bin/filen`.
+- `scripts/actions/` — workflow entry points for auto-update, GitHub Pages and Dependabot.
+- `scripts/validate/` — desktop entry, AppStream and upstream checksum validation.
+- `scripts/test/` — offline pipeline tests plus the bundle and OSTree install checks.
+
 # AI use and credit
-- Google antigravity was used to create this project. 
+- Google antigravity was used to create this project.
   - Scripts used are kept inside of [scripts/](https://github.com/anthony1x6000/io.filen.desktop/tree/main/scripts), so you can audit the code for yourself.
 - Based off https://github.com/flathub/com.visualstudio.code.
