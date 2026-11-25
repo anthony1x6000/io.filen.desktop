@@ -61,10 +61,10 @@ case "${1:-} ${2:-}" in
     echo "https://github.com/anthony1x6000/io.filen.desktop/issues/101"
     ;;
   "issue comment")
-    printf 'comment %s\n' "$*" >> "$STUB_LOG/actions"
+    printf 'comment %s\n' "${3:-}" >> "$STUB_LOG/actions"
     ;;
   "issue close")
-    printf 'close %s\n' "$*" >> "$STUB_LOG/actions"
+    printf 'close %s\n' "${3:-}" >> "$STUB_LOG/actions"
     : > "$STUB_ISSUES"
     ;;
 esac
