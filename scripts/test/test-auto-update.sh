@@ -494,14 +494,17 @@ grep -q 'main' "$WORK/last.log" || fail "the refusal must explain that main is r
 assert_eq "$keepalive_commits" "$(remote_commits "$keepalive")" "wrong-ref run must not push to main"
 ok "manual runs are restricted to main"
 
-# --- scenario 18: the tag publisher refuses a branch ref -------------------
-echo "scenario: the release publisher refuses a non-version ref"
-: > "$STUB_LOG/gh.calls"
-if run_publish "$root/ws" main; then
-  fail "the release publisher must refuse refs/heads/main"
-fi
-grep -q 'release create' "$STUB_LOG/gh.calls" && fail "a branch ref must never become a release"
-released main && fail "no release named main may be created"
+# --- scenario 18: the tag publisher refuses branch/non-version refs ----------
+echo "scenario: the release publisher refuses branch and non-version refs"
+for ref in refs/heads/main refs/tags/main; do
+  : > "$STUB_LOG/gh.calls"
+  if ( cd "$root/ws" && GITHUB_REF="$ref" bash scripts/build/publish-release.sh io.filen.desktop.flatpak ) \
+      > "$WORK/last.log" 2>&1; then
+    fail "the release publisher must refuse $ref"
+  fi
+  grep -q 'release create' "$STUB_LOG/gh.calls" && fail "$ref must never become a release"
+  released main && fail "no release named main may be created"
+done
 ok "release publishing is restricted to version tags"
 
 echo "PASS: the release pipeline survives replayed history, retries and dry runs"

@@ -56,6 +56,16 @@ grep -q -- '--gpg-import=' "$STUB_LOG" && { cat "$STUB_LOG" >&2; fail "unsigned 
 grep -q -- '--gpg-sign=' "$STUB_LOG" && { cat "$STUB_LOG" >&2; fail "unsigned build must not sign"; }
 ok "unsigned build omitted all GPG arguments"
 
+echo "scenario: publishing builds refuse to run unsigned"
+: > "$STUB_LOG"
+if ( cd "$build" && env -u GPG_PRIVATE_KEY REQUIRE_SIGNING=1 HOME="$WORK/home" \
+    bash build-flatpak.sh ) > "$WORK/required-signing.log" 2>&1; then
+  fail "a publishing build must fail when the signing secret is missing"
+fi
+grep -q 'signing is required' "$WORK/required-signing.log" \
+  || { cat "$WORK/required-signing.log" >&2; fail "missing signing key must be explained"; }
+ok "publishing build rejected a missing signing key"
+
 # --- scenario 2: the install test follows the repository's actual signature -
 echo "scenario: repository install verifies only a signed repository"
 repo_ws="$WORK/repo"
@@ -86,5 +96,24 @@ for test_script in test-bundle-install.sh test-repo-install.sh; do
     || fail "$test_script must execute a real file check inside the sandbox"
 done
 ok "build and install checks require the packaged Filen executable"
+
+# --- scenario 4: Pages never advertises a key for an unsigned repo ----------
+echo "scenario: Pages preparation rejects an unsigned repository with a key"
+cat > "$STUBS/python3" <<'STUB'
+#!/usr/bin/env bash
+exit 0
+STUB
+chmod +x "$STUBS/python3"
+pages="$WORK/pages"
+mkdir -p "$pages/repo"
+tar -czf "$pages/repo.tar.gz" -C "$pages" repo
+cp "$REPO_ROOT/filen-public.gpg" "$REPO_ROOT/README.md" "$pages/"
+if ( cd "$pages" && GITHUB_REPOSITORY=anthony1x6000/io.filen.desktop \
+    bash "$REPO_ROOT/scripts/actions/prepare-pages.sh" _site ) > "$WORK/pages.log" 2>&1; then
+  fail "Pages must not advertise a GPG key for an unsigned repository"
+fi
+grep -qi 'unsigned' "$WORK/pages.log" \
+  || { cat "$WORK/pages.log" >&2; fail "unsigned Pages repository must be rejected clearly"; }
+ok "unsigned Pages repository cannot advertise a verification key"
 
 echo "PASS: unsigned PR artifacts install and packaged executables are checked"
