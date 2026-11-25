@@ -32,6 +32,10 @@ grep -Fq 'scripts/actions/report-pipeline-outcome.sh?ref=$GITHUB_SHA' <<<"$repor
   || fail "reporting must fetch the pinned reporter through the GitHub API"
 grep -Fq 'bash -s --' <<<"$report_block" \
   || fail "reporting must execute the fetched reporter without a checkout"
+grep -q '^        shell: bash$' <<<"$report_block" \
+  || fail "reporting needs pipefail so a failed fetch cannot look successful"
+grep -Fq 'GH_REPO: ${{ github.repository }}' <<<"$report_block" \
+  || fail "reporting needs an explicit repository context without checkout"
 grep -Fq '${{ needs.update-and-release.result }}' <<<"$report_block" \
   || fail "reporting must use the updater job result"
 ok "failure reporting survives startup and checkout errors and leaves dry runs alone"

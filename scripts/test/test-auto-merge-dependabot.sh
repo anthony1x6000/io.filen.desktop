@@ -50,6 +50,12 @@ case "${1:-} ${2:-}" in
     views=$(cat "$STUB_LOG/pr-views" 2>/dev/null || echo 0)
     views=$((views + 1))
     printf '%s\n' "$views" > "$STUB_LOG/pr-views"
+    if [[ "$*" == *"--json state"* ]]; then
+      state=OPEN
+      [[ -f "$STUB_LOG/merged" ]] && state=MERGED
+      emit '{"state":"'"$state"'"}' "$@"
+      exit 0
+    fi
     sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
     if [[ "${STUB_HEAD_CHANGED:-0}" == 1 && "$views" -gt 1 ]]; then
       sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
@@ -96,8 +102,24 @@ case "${1:-} ${2:-}" in
         ;;
     esac
     ;;
+  "run view")
+    attempt=1
+    [[ -f "$STUB_LOG/reran" ]] && attempt=2
+    if [[ "$*" == *"--json status,attempt"* ]]; then
+      printf '%s\n' '{"status":"completed","attempt":'"$attempt"'}'
+    else
+      printf '%s\n' "$attempt"
+    fi
+    ;;
   "run rerun")
+    reruns=$(cat "$STUB_LOG/rerun-attempts" 2>/dev/null || echo 0)
+    reruns=$((reruns + 1))
+    printf '%s\n' "$reruns" > "$STUB_LOG/rerun-attempts"
     : > "$STUB_LOG/reran"
+    if [[ "${STUB_RERUN_ACCEPTED_THEN_FAIL:-0}" == 1 && "$reruns" == 1 ]]; then
+      echo "accepted but response lost" >&2
+      exit 1
+    fi
     ;;
   "run watch")
     [[ "${STUB_RERUN_RESULT:-success}" == "success" ]] || exit 1
@@ -109,6 +131,18 @@ case "${1:-} ${2:-}" in
     exit 8
     ;;
   "pr merge")
+    merges=$(cat "$STUB_LOG/merge-attempts" 2>/dev/null || echo 0)
+    merges=$((merges + 1))
+    printf '%s\n' "$merges" > "$STUB_LOG/merge-attempts"
+    if [[ "${STUB_MERGE_ACCEPTED_THEN_FAIL:-0}" == 1 && "$merges" == 1 ]]; then
+      printf '%s\n' "$*" > "$STUB_LOG/merged"
+      echo "accepted but response lost" >&2
+      exit 1
+    fi
+    if (( merges <= ${STUB_MERGE_FAILS:-0} )); then
+      echo "transient merge failure" >&2
+      exit 1
+    fi
     printf '%s\n' "$*" > "$STUB_LOG/merged"
     ;;
 esac
@@ -130,7 +164,8 @@ run_script() { # env... -> runs the real script against the stubs
 reset_state() {
   : > "$STUB_LOG/gh.calls"
   rm -f "$STUB_LOG/merged" "$STUB_LOG/pr-views" "$STUB_LOG/polls" \
-        "$STUB_LOG/api-calls" "$STUB_LOG/reran"
+        "$STUB_LOG/api-calls" "$STUB_LOG/reran" "$STUB_LOG/rerun-attempts" \
+        "$STUB_LOG/merge-attempts"
 }
 
 # --- scenario 1: green checks merge, without waiting on this workflow -------
@@ -217,5 +252,31 @@ if run_script STUB_CHECKS=transient CHECKS_WAIT_ATTEMPTS=1; then
 fi
 grep -q '^pr merge' "$STUB_LOG/gh.calls" && fail "no merge is allowed without an observed green check"
 ok "final-attempt rerun did not bypass the green-check requirement"
+
+# --- scenario 10: a transient final merge error is retried statefully -------
+echo "scenario: a transient merge error is retried after re-reading PR state"
+reset_state
+run_script STUB_MERGE_FAILS=1 || { cat "$WORK/out.log" >&2; fail "a transient merge error must recover"; }
+[[ "$(cat "$STUB_LOG/merge-attempts")" == 2 ]] || fail "unmerged PR must be retried once"
+[[ -f "$STUB_LOG/merged" ]] || fail "PR was not merged after the retry"
+ok "transient final merge recovered"
+
+# --- scenario 11: an accepted merge with a lost response is not repeated ----
+echo "scenario: an accepted merge with a lost response is treated as success"
+reset_state
+run_script STUB_MERGE_ACCEPTED_THEN_FAIL=1 \
+  || { cat "$WORK/out.log" >&2; fail "accepted merge must be recognized"; }
+[[ "$(cat "$STUB_LOG/merge-attempts")" == 1 ]] || fail "accepted merge must not be repeated"
+ok "accepted merge with lost response recognized"
+
+# --- scenario 12: an accepted rerun with a lost response is not repeated -----
+echo "scenario: an accepted rerun with a lost response is watched, not repeated"
+reset_state
+run_script STUB_CHECKS=transient STUB_RERUN_ACCEPTED_THEN_FAIL=1 \
+  || { cat "$WORK/out.log" >&2; fail "accepted rerun must be recognized and watched"; }
+[[ "$(cat "$STUB_LOG/rerun-attempts")" == 1 ]] || fail "accepted rerun must not be posted twice"
+grep -q '^run watch 777' "$STUB_LOG/gh.calls" || fail "accepted rerun must still be watched"
+grep -q '^pr merge' "$STUB_LOG/gh.calls" || fail "PR must merge after the accepted rerun"
+ok "accepted rerun with lost response watched without duplication"
 
 echo "PASS: dependabot PRs merge themselves once their checks are green"

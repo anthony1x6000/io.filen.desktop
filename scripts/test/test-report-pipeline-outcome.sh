@@ -34,6 +34,13 @@ cat > "$STUBS/gh" <<'STUB'
 set -euo pipefail
 printf '%s\n' "$*" >> "$STUB_LOG/gh.calls"
 
+# The workflow runs this script without a checkout, so every issue command
+# must carry an explicit repository selector.
+if [[ "${1:-}" == "issue" && "$*" != *"--repo $GITHUB_REPOSITORY"* ]]; then
+  echo "no repository context for gh issue" >&2
+  exit 1
+fi
+
 emit() { # $1 json -> applies the --jq expression the caller asked for
   local expr="" prev="" arg
   for arg in "$@"; do
