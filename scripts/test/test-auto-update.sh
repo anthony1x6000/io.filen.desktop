@@ -377,7 +377,31 @@ grep -q 'did not pick the release up' "$WORK/last.log" \
 grep -q 'workflow run' "$STUB_LOG/gh.calls" && fail "a drifted run must not deploy anything"
 ok "silent upstream drift fails the run instead of reporting no update"
 
-# --- scenario 12: dry run on a quiet day publishes nothing -------------------
+# --- scenario 12: a scheduled run keeps its own schedule enabled -------------
+echo "scenario: a scheduled run keeps its own workflow enabled"
+keepalive="$(new_workspace keepalive)"
+keepalive_version="$(manifest_version "$keepalive/ws")"
+git -C "$keepalive/ws" tag "v$keepalive_version"
+git -C "$keepalive/ws" push -q origin "v$keepalive_version"
+: > "$STUB_RELEASES/v$keepalive_version"
+export STUB_LATEST_VERSION="$keepalive_version"
+export STUB_UPSTREAM_TAG="$keepalive_version"
+: > "$STUB_LOG/gh.calls"
+if ( cd "$keepalive/ws" && GITHUB_EVENT_NAME=schedule GITHUB_REPOSITORY=example/repo \
+    bash scripts/actions/auto-update.sh ) > "$WORK/last.log" 2>&1; then
+  :
+else
+  fail "a scheduled run must keep the workflow enabled and verify the deploy"
+fi
+assert_eq "1" "$(remote_commits "$keepalive")" "keeping the schedule alive needs no dummy commit"
+grep -q 'api -X PUT repos/example/repo/actions/workflows/auto-update-and-release.yml/enable' \
+  "$STUB_LOG/gh.calls" || fail "the scheduled run must re-enable its own workflow"
+ok "scheduled workflow is re-enabled before GitHub can disable it"
+grep -q 'run watch' "$STUB_LOG/gh.calls" \
+  || fail "the build after a keepalive must still be watched"
+ok "scheduled run still verifies the build & Pages deploy"
+
+# --- scenario 13: dry run on a quiet day publishes nothing -------------------
 echo "scenario: a steady-state dry run does not dispatch a real deployment"
 dry_steady="$(new_workspace dry-steady)"
 dry_steady_version="$(manifest_version "$dry_steady/ws")"
@@ -390,36 +414,9 @@ export STUB_UPSTREAM_TAG="$dry_steady_version"
 dry_steady_head="$(git -C "$dry_steady/ws" rev-parse HEAD)"
 run_dry_update "$dry_steady/ws" || fail "steady-state dry run must succeed"
 assert_eq "$dry_steady_head" "$(git -C "$dry_steady/ws" rev-parse HEAD)" \
-  "steady-state dry run creates no keepalive commit"
+  "steady-state dry run creates no commit"
 assert_eq "1" "$(remote_commits "$dry_steady")" "steady-state dry run pushes nothing"
 grep -q 'workflow run' "$STUB_LOG/gh.calls" && fail "steady-state dry run must not deploy to Pages"
 ok "steady-state dry run has no publishing side effects"
-
-# --- scenario 13: an idle public repo keeps its schedule enabled -------------
-echo "scenario: an idle repository gets a keepalive commit for the schedule"
-keepalive="$(new_workspace keepalive)"
-keepalive_version="$(manifest_version "$keepalive/ws")"
-git -C "$keepalive/ws" tag "v$keepalive_version"
-git -C "$keepalive/ws" push -q origin "v$keepalive_version"
-: > "$STUB_RELEASES/v$keepalive_version"
-export STUB_LATEST_VERSION="$keepalive_version"
-export STUB_UPSTREAM_TAG="$keepalive_version"
-: > "$STUB_LOG/gh.calls"
-if ( cd "$keepalive/ws" && KEEPALIVE_AFTER_DAYS=0 bash scripts/actions/auto-update.sh ) \
-    > "$WORK/last.log" 2>&1; then
-  :
-else
-  fail "an idle repository must refresh its activity and keep checking"
-fi
-assert_eq "2" "$(remote_commits "$keepalive")" "one keepalive commit was pushed"
-assert_eq "chore: keep scheduled workflows active" \
-  "$(git --git-dir="$keepalive/remote.git" log -1 --format=%s main)" \
-  "keepalive commit explains why it exists"
-assert_eq "33004321+anthony1x6000@users.noreply.github.com" \
-  "$(git --git-dir="$keepalive/remote.git" log -1 --format=%ae main)" \
-  "keepalive commit uses the repository identity"
-grep -q 'run watch' "$STUB_LOG/gh.calls" \
-  || fail "the build after a keepalive commit must still be watched"
-ok "idle repository refreshes activity and still verifies the deploy"
 
 echo "PASS: the release pipeline survives replayed history, retries and dry runs"
