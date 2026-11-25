@@ -57,8 +57,8 @@ modules:
       - type: file
         dest-filename: filen.deb
         only-arches: [x86_64]
-        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.53/Filen_linux_amd64.deb
-        sha256: 2c22f9ab466be753824a784e9c63e7d4b48a7e25f1d641ba6304415c35c6ce04
+        url: https://github.com/FilenCloudDienste/filen-desktop/releases/download/v3.0.55/Filen_linux_amd64.deb
+        sha256: 3e12935b7467dbde6c5e6f7b1a2592ff8503969676a5940dac5dea1a78b512c7
         x-checker-data:
           type: json
           url: https://api.github.com/repos/FilenCloudDienste/filen-desktop/releases/latest
