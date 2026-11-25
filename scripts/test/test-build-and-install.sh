@@ -37,6 +37,7 @@ if [[ "${1:-}" == "init" ]]; then
 fi
 STUB
 chmod +x "$STUBS/flatpak" "$STUBS/ostree"
+ln -s flatpak "$STUBS/flatpak-builder"
 export PATH="$STUBS:$PATH"
 
 # --- scenario 1: an unsigned build carries no verification key -------------
