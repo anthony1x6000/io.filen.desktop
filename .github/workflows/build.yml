@@ -40,6 +40,9 @@ jobs:
       - name: Test Pages Deployment
         run: bash scripts/test/test-deploy-pages.sh
 
+      - name: Test Checksum Verifier
+        run: bash scripts/test/test-verify-checksums.sh
+
       - name: Verify Upstream Release Checksums
         run: python3 scripts/validate/verify-checksums.py
 
