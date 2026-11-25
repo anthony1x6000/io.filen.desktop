@@ -12,8 +12,16 @@ on:
 
 permissions:
   contents: write
-  # Needed to dispatch the build/deploy workflow for the released commit.
+  # Needed to dispatch the build/deploy workflow and follow its run.
   actions: write
+  # Needed to keep the pipeline failure issue open.
+  issues: write
+
+# Two runs tagging the same release would race each other, so a scheduled run
+# and a manual one queue instead of overlapping.
+concurrency:
+  group: auto-update-and-release
+  cancel-in-progress: false
 
 jobs:
   update-and-release:
@@ -38,5 +46,12 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
-          GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           AUTO_UPDATE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
+
+      # Nobody watches the Actions tab here, so a failing pipeline leaves an
+      # issue behind instead of a red run somebody has to notice.
+      - name: Report Pipeline Outcome
+        if: always() && job.status != 'cancelled'
+        run: bash scripts/actions/report-pipeline-outcome.sh "${{ job.status }}"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

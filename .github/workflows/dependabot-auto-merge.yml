@@ -6,6 +6,12 @@ on:
 
 permissions: {}
 
+# A new push to the PR starts a fresh waiter; the old one would merge a commit
+# that is no longer the head.
+concurrency:
+  group: dependabot-automerge-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   auto-merge:
     name: Auto-merge Dependabot PRs
