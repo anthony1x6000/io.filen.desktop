@@ -126,4 +126,20 @@ if report exploded; then
 fi
 ok "unknown outcome rejected"
 
+# --- scenario 6: dry runs never touch the real failure issue ----------------
+echo "scenario: a dry run cannot close or comment on a real failure"
+reset_state 101
+( export PIPELINE_DRY_RUN=1; report failure ) \
+  || { cat "$WORK/out.log" >&2; fail "a dry-run report must be a no-op"; }
+[[ -s "$STUB_LOG/gh.calls" ]] && { cat "$STUB_LOG/gh.calls" >&2; fail "dry run must not query or mutate issues"; }
+[[ -s "$STUB_ISSUES" ]] || fail "dry run must leave the real failure issue open"
+ok "dry run left the real issue tracker untouched"
+
+# --- scenario 7: cancelled runs stay visible -------------------------------
+echo "scenario: a cancelled run reports the interruption"
+reset_state ""
+report cancelled || { cat "$WORK/out.log" >&2; fail "reporting a cancellation must succeed"; }
+grep -q '^create ' "$STUB_LOG/actions" || fail "a cancelled run must leave a visible issue"
+ok "cancelled run opened the pipeline issue"
+
 echo "PASS: pipeline failures stay visible in the repository until they recover"

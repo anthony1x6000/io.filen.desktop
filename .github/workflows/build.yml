@@ -37,6 +37,15 @@ jobs:
       - name: Test Auto-Update Pipeline
         run: bash scripts/test/test-auto-update.sh
 
+      - name: Test Build & Install Contracts
+        run: bash scripts/test/test-build-and-install.sh
+
+      - name: Test Main Head Guard
+        run: bash scripts/test/test-main-head-guard.sh
+
+      - name: Test Workflow Safety
+        run: bash scripts/test/test-workflow-safety.sh
+
       - name: Test Pages Deployment
         run: bash scripts/test/test-deploy-pages.sh
 
