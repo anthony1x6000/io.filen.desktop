@@ -139,6 +139,7 @@ jobs:
       pages: write
       id-token: write
       contents: read
+      actions: read
     steps:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -157,6 +158,25 @@ jobs:
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site/
+
+      # The run's artifact listing is eventually consistent, so a deploy fired
+      # seconds after the upload can see the run's other artifacts but not this
+      # one and fail with 'No artifacts named "github-pages" were found'.
+      - name: Wait for Pages Artifact to Be Visible
+        run: |
+          for attempt in $(seq 1 24); do
+            if gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}/artifacts" \
+                 --jq '.artifacts[].name' 2>/dev/null | grep -qx 'github-pages'; then
+              echo "Pages artifact visible after ${attempt} attempt(s)"
+              exit 0
+            fi
+            echo "Pages artifact not listed yet (attempt ${attempt}/24)"
+            sleep 5
+          done
+          echo "::error::Pages artifact never became visible in run ${GITHUB_RUN_ID}"
+          exit 1
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Deploy to GitHub Pages
         id: deployment
