@@ -209,4 +209,13 @@ run_script STUB_API_FAILS=1 || { cat "$WORK/out.log" >&2; fail "a transient API 
 grep -q '^pr merge' "$STUB_LOG/gh.calls" || fail "PR must merge after the API recovers"
 ok "transient API failure retried and recovered"
 
+# --- scenario 9: a rerun on the final poll cannot bypass a green check -------
+echo "scenario: a final-attempt rerun still requires a green check before merge"
+reset_state
+if run_script STUB_CHECKS=transient CHECKS_WAIT_ATTEMPTS=1; then
+  fail "a rerun must not exhaust the poll budget and then merge without green checks"
+fi
+grep -q '^pr merge' "$STUB_LOG/gh.calls" && fail "no merge is allowed without an observed green check"
+ok "final-attempt rerun did not bypass the green-check requirement"
+
 echo "PASS: dependabot PRs merge themselves once their checks are green"
