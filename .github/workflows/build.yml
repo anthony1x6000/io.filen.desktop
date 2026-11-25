@@ -34,6 +34,9 @@ jobs:
       - name: Validate Metadata
         run: bash scripts/validate/validate-metadata.sh
 
+      - name: Test Auto-Update Pipeline
+        run: bash scripts/test/test-auto-update.sh
+
       - name: Verify Upstream Release Checksums
         run: python3 scripts/validate/verify-checksums.py
 
