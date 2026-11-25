@@ -35,4 +35,10 @@ gates="$(grep -c "if: steps.current.outputs.deploy == 'true'" "$BUILD" || true)"
 [[ "$gates" == 4 ]] || fail "all four Pages publishing steps must be gated (found $gates)"
 ok "download, prepare, upload and deploy are gated on the current head"
 
+# --- scenario 4: the merger can read the check-run API ----------------------
+echo "scenario: the Dependabot merger has check-run read permission"
+grep -q '^      checks: read$' "$REPO_ROOT/.github/workflows/dependabot-auto-merge.yml" \
+  || fail "the merger needs checks:read for the commit check-run API"
+ok "Dependabot merger can read check runs"
+
 echo "PASS: workflow-level unattended safety contracts hold"
