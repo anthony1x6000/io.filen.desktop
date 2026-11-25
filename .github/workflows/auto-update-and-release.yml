@@ -4,6 +4,11 @@ on:
   schedule:
     - cron: '0 0 * * *' # Check daily at midnight UTC
   workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Exercise the real checker and build without pushing, tagging or releasing'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -32,3 +37,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          AUTO_UPDATE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
