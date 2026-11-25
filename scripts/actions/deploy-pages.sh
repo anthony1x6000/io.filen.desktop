@@ -25,6 +25,9 @@ POLL_SECONDS="${POLL_SECONDS:-5}"
 log() { printf '%s\n' "$*"; }
 die() { printf '::error::%s\n' "$*" >&2; exit 1; }
 
+WORKDIR="$(mktemp -d)"
+trap 'rm -rf "$WORKDIR"' EXIT
+
 : "${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}"
 : "${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
 : "${GITHUB_SHA:?GITHUB_SHA is required}"
@@ -54,9 +57,24 @@ payload="$(jq -n --argjson artifact_id "$artifact_id" --arg version "$GITHUB_SHA
   --arg token "$oidc_token" \
   '{artifact_id: $artifact_id, pages_build_version: $version, oidc_token: $token}')"
 
-deployment="$(printf '%s' "$payload" \
-  | gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/deployments" --input -)" \
-  || die "creating the Pages deployment failed"
+# The Pages API intermittently answers 5xx with an empty body (which gh reports
+# as "unexpected end of JSON input"), so a transient failure is retried instead
+# of failing the deploy.
+deployment=""
+create_attempts="${CREATE_WAIT_ATTEMPTS:-5}"
+for attempt in $(seq 1 "$create_attempts"); do
+  if deployment="$(printf '%s' "$payload" \
+      | gh api -X POST "repos/${GITHUB_REPOSITORY}/pages/deployments" --input - 2>"$WORKDIR/create.err")" \
+      && [[ -n "$deployment" ]]; then
+    break
+  fi
+  log "creating the Pages deployment failed (attempt ${attempt}/${create_attempts}): $(tr '\n' ' ' < "$WORKDIR/create.err" | head -c 200)"
+  deployment=""
+  if (( attempt < create_attempts )); then
+    sleep "$POLL_SECONDS"
+  fi
+done
+[[ -n "$deployment" ]] || die "creating the Pages deployment failed after ${create_attempts} attempt(s)"
 
 deployment_id="$(jq -r '.id // empty' <<<"$deployment")"
 page_url="$(jq -r '.page_url // empty' <<<"$deployment")"
