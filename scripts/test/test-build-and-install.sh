@@ -32,7 +32,9 @@ STUB
 cat > "$STUBS/ostree" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
-[[ "${1:-}" == "init" ]] && mkdir -p repo
+if [[ "${1:-}" == "init" ]]; then
+  mkdir -p repo
+fi
 STUB
 chmod +x "$STUBS/flatpak" "$STUBS/ostree"
 export PATH="$STUBS:$PATH"
