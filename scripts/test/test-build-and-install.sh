@@ -25,9 +25,12 @@ set -euo pipefail
 printf '%s\n' "$*" >> "$STUB_LOG"
 if [[ "${1:-}" == "build-bundle" ]]; then
   for arg in "$@"; do
-    [[ "$arg" == *.flatpak ]] && : > "$arg"
+    if [[ "$arg" == *.flatpak ]]; then
+      : > "$arg"
+    fi
   done
 fi
+exit 0
 STUB
 cat > "$STUBS/ostree" <<'STUB'
 #!/usr/bin/env bash
