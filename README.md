@@ -65,6 +65,16 @@ flatpak override --user --filesystem=~/Documents io.filen.desktop
 - `scripts/validate/` — desktop entry, AppStream and upstream checksum validation.
 - `scripts/test/` — offline pipeline tests plus the bundle and OSTree install checks.
 
+## Automation
+
+Nothing in this repository needs a maintainer at the keyboard:
+
+- Every day a workflow checks the [upstream releases](https://github.com/FilenCloudDienste/filen-desktop/releases). When there is a new one it bumps the manifest, builds, publishes the release and waits for GitHub Pages to serve it, so `flatpak update` picks it up.
+- On a day without a release it still rebuilds and redeploys, so a break in the chain (upstream actions, the Flathub image, Pages) shows up within a day instead of at the next release.
+- If the checker ever stops seeing releases, the run fails instead of reporting "no updates" forever.
+- Dependabot PRs merge themselves once their checks pass.
+- A failing run opens an issue in this repository and keeps commenting on it until a run succeeds, which closes it.
+
 # AI use and credit
 - Google antigravity was used to create this project.
   - Scripts used are kept inside of [scripts/](https://github.com/anthony1x6000/io.filen.desktop/tree/main/scripts), so you can audit the code for yourself.

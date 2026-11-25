@@ -5,9 +5,53 @@ MANIFEST="io.filen.desktop.yaml"
 METAINFO="io.filen.desktop.metainfo.xml"
 BUNDLE="io.filen.desktop.flatpak"
 DRY_RUN="${AUTO_UPDATE_DRY_RUN:-0}"
+UPSTREAM_REPO="FilenCloudDienste/filen-desktop"
+CI_WORKFLOW="Build & Validate Flatpak"
+CI_WORKFLOW_FILE="build.yml"
 
 tag_exists() { git rev-parse -q --verify "refs/tags/$1" >/dev/null; }
 release_exists() { gh release view "$1" >/dev/null 2>&1; }
+
+# Latest upstream tag, without the leading v. Empty when GitHub cannot be
+# reached, which is not fatal: the build below reports its own failures.
+upstream_version() {
+  gh api "repos/$UPSTREAM_REPO/releases/latest" --jq '.tag_name' 2>/dev/null \
+    | sed 's/^v//' || true
+}
+
+# Push a change with GITHUB_TOKEN starts no workflows, so Pages only learns
+# about a release through this dispatch. The release is not shipped until that
+# run is green, so follow it instead of firing and forgetting: a red run is
+# otherwise invisible in an unattended repository.
+dispatch_and_watch_ci() {
+  local before="" run_id="" attempt
+  before="$(gh run list --workflow "$CI_WORKFLOW_FILE" --event workflow_dispatch --limit 1 \
+    --json databaseId --jq '.[0].databaseId // 0' 2>/dev/null || echo 0)"
+
+  if ! gh workflow run "$CI_WORKFLOW" --ref main; then
+    echo "::error::could not dispatch the build/deploy workflow; Pages will lag behind $TAG" >&2
+    return 1
+  fi
+
+  for attempt in $(seq 1 "${CI_WAIT_ATTEMPTS:-24}"); do
+    run_id="$(gh run list --workflow "$CI_WORKFLOW_FILE" --event workflow_dispatch --limit 5 \
+      --json databaseId --jq "[.[] | select(.databaseId > $before)][0].databaseId // empty" \
+      2>/dev/null || true)"
+    [[ -n "$run_id" ]] && break
+    sleep "${POLL_SECONDS:-5}"
+  done
+
+  if [[ -z "$run_id" ]]; then
+    echo "::error::the build/deploy workflow was dispatched but no run appeared" >&2
+    return 1
+  fi
+
+  echo "=== Watching build & Pages deploy run $run_id ==="
+  if ! gh run watch "$run_id" --exit-status --interval 20; then
+    echo "::error::build/deploy run $run_id failed; GitHub Pages is not serving $TAG" >&2
+    return 1
+  fi
+}
 
 # git and FEDC both refuse a repo they consider foreign; the workflow container
 # needs this and it is a no-op once the workspace is already trusted.
@@ -45,7 +89,18 @@ fi
 # exist. Checking all three lets a run that died part-way be completed instead
 # of reporting "No updates found" forever.
 if [[ "$NEW_VERSION" == 0 ]] && tag_exists "$TAG" && release_exists "$TAG"; then
-  echo "No updates found."
+  # The data checker is the only thing that notices a newer release upstream.
+  # One that quietly stopped noticing would leave this run reporting "No
+  # updates found" while the Flatpak falls behind, which is how it drifted
+  # before, so compare against upstream directly instead of trusting it.
+  UPSTREAM="$(upstream_version)"
+  if [[ -n "$UPSTREAM" && "$UPSTREAM" != "$VERSION" ]]; then
+    echo "::error::upstream is at v$UPSTREAM but the manifest pins v$VERSION; the data checker did not pick the release up" >&2
+    exit 1
+  fi
+
+  echo "No updates found; re-verifying the build and Pages deploy"
+  dispatch_and_watch_ci || exit 1
   exit 0
 fi
 
@@ -89,12 +144,11 @@ if ! release_exists "$TAG"; then
   gh release create "$TAG" "$BUNDLE" --title "$TAG" --generate-notes
 fi
 
-# The commit and tag above are pushed with GITHUB_TOKEN, and pushes made with it
-# start no workflows. Without this the Pages OSTree repository, which is what
-# `flatpak update` actually pulls, would stay on the previous release.
-echo "=== Triggering Build & Pages Deploy for $TAG ==="
-if ! gh workflow run "Build & Validate Flatpak" --ref main; then
-  echo "::error::could not dispatch the build/deploy workflow; Pages will lag behind $TAG" >&2
+# The Pages OSTree repository is what `flatpak update` actually pulls, so the
+# release is only finished once the build/deploy run for it is green.
+echo "=== Building and deploying $TAG through CI ==="
+if ! dispatch_and_watch_ci; then
+  echo "::error::release $TAG is published but Pages was not updated" >&2
   exit 1
 fi
 
