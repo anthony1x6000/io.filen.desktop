@@ -120,9 +120,22 @@ run_id() { cat "$STUB_LOG/last-run-id" 2>/dev/null || echo 1000; }
 case "${1:-} ${2:-}" in
   "release view")
     [[ -f "$STUB_RELEASES/${3:-}" ]] || exit 1
+    case "$(cat "$STUB_RELEASES/${3:-}")" in
+      draft) printf '%s\n' '{"isDraft":true,"assets":[]}' ;;
+      missing-asset) printf '%s\n' '{"isDraft":false,"assets":[]}' ;;
+      *) printf '%s\n' '{"isDraft":false,"assets":[{"name":"io.filen.desktop.flatpak"}]}' ;;
+    esac
     ;;
   "release create"|"release upload")
-    : > "$STUB_RELEASES/${3:-}"
+    printf '%s\n' "${STUB_RELEASE_CREATE_STATE:-complete}" > "$STUB_RELEASES/${3:-}"
+    ;;
+  "release edit")
+    state="$(cat "$STUB_RELEASES/${3:-}")"
+    for arg in "$@"; do
+      [[ "$arg" == "--draft=false" ]] && state=complete
+      [[ "$arg" == "--draft=true" ]] && state=draft
+    done
+    printf '%s\n' "$state" > "$STUB_RELEASES/${3:-}"
     ;;
   "workflow run")
     printf '%s\n' "$(( $(run_id) + 1 ))" > "$STUB_LOG/last-run-id"
@@ -376,5 +389,122 @@ grep -q 'did not pick the release up' "$WORK/last.log" \
   || fail "the drift guard must say the checker missed the release"
 grep -q 'workflow run' "$STUB_LOG/gh.calls" && fail "a drifted run must not deploy anything"
 ok "silent upstream drift fails the run instead of reporting no update"
+
+# --- scenario 12: a scheduled run keeps its own schedule enabled -------------
+echo "scenario: a scheduled run keeps its own workflow enabled"
+keepalive="$(new_workspace keepalive)"
+keepalive_version="$(manifest_version "$keepalive/ws")"
+git -C "$keepalive/ws" tag "v$keepalive_version"
+git -C "$keepalive/ws" push -q origin "v$keepalive_version"
+: > "$STUB_RELEASES/v$keepalive_version"
+export STUB_LATEST_VERSION="$keepalive_version"
+export STUB_UPSTREAM_TAG="$keepalive_version"
+: > "$STUB_LOG/gh.calls"
+if ( cd "$keepalive/ws" && GITHUB_EVENT_NAME=schedule GITHUB_REPOSITORY=example/repo \
+    bash scripts/actions/auto-update.sh ) > "$WORK/last.log" 2>&1; then
+  :
+else
+  fail "a scheduled run must keep the workflow enabled and verify the deploy"
+fi
+assert_eq "1" "$(remote_commits "$keepalive")" "keeping the schedule alive needs no dummy commit"
+grep -q 'api -X PUT repos/example/repo/actions/workflows/auto-update-and-release.yml/enable' \
+  "$STUB_LOG/gh.calls" || fail "the scheduled run must re-enable its own workflow"
+ok "scheduled workflow is re-enabled before GitHub can disable it"
+grep -q 'run watch' "$STUB_LOG/gh.calls" \
+  || fail "the build after a keepalive must still be watched"
+ok "scheduled run still verifies the build & Pages deploy"
+
+# --- scenario 13: dry run on a quiet day publishes nothing -------------------
+echo "scenario: a steady-state dry run does not dispatch a real deployment"
+dry_steady="$(new_workspace dry-steady)"
+dry_steady_version="$(manifest_version "$dry_steady/ws")"
+git -C "$dry_steady/ws" tag "v$dry_steady_version"
+git -C "$dry_steady/ws" push -q origin "v$dry_steady_version"
+: > "$STUB_RELEASES/v$dry_steady_version"
+export STUB_LATEST_VERSION="$dry_steady_version"
+export STUB_UPSTREAM_TAG="$dry_steady_version"
+: > "$STUB_LOG/gh.calls"
+dry_steady_head="$(git -C "$dry_steady/ws" rev-parse HEAD)"
+run_dry_update "$dry_steady/ws" || fail "steady-state dry run must succeed"
+assert_eq "$dry_steady_head" "$(git -C "$dry_steady/ws" rev-parse HEAD)" \
+  "steady-state dry run creates no commit"
+assert_eq "1" "$(remote_commits "$dry_steady")" "steady-state dry run pushes nothing"
+grep -q 'workflow run' "$STUB_LOG/gh.calls" && fail "steady-state dry run must not deploy to Pages"
+ok "steady-state dry run has no publishing side effects"
+
+# --- scenario 14: a release whose asset upload failed is repaired -----------
+echo "scenario: an existing release with no bundle is repaired"
+partial="$(new_workspace partial-release)"
+partial_version="$(manifest_version "$partial/ws")"
+git -C "$partial/ws" tag "v$partial_version"
+git -C "$partial/ws" push -q origin "v$partial_version"
+printf '%s\n' missing-asset > "$STUB_RELEASES/v$partial_version"
+export STUB_LATEST_VERSION="$partial_version"
+export STUB_UPSTREAM_TAG="$partial_version"
+: > "$STUB_LOG/gh.calls"
+run_update "$partial/ws" || fail "a release with a missing asset must be repaired"
+assert_eq "complete" "$(cat "$STUB_RELEASES/v$partial_version")" "missing release asset uploaded"
+grep -q "release upload v$partial_version" "$STUB_LOG/gh.calls" \
+  || fail "the missing bundle must be uploaded instead of reporting no update"
+ok "partial release repaired without a human"
+
+# --- scenario 15: a draft release is finished -------------------------------
+echo "scenario: an existing draft release is published"
+draft="$(new_workspace draft-release)"
+draft_version="$(manifest_version "$draft/ws")"
+git -C "$draft/ws" tag "v$draft_version"
+git -C "$draft/ws" push -q origin "v$draft_version"
+printf '%s\n' draft > "$STUB_RELEASES/v$draft_version"
+export STUB_LATEST_VERSION="$draft_version"
+export STUB_UPSTREAM_TAG="$draft_version"
+: > "$STUB_LOG/gh.calls"
+run_update "$draft/ws" || fail "a draft release must be completed"
+assert_eq "complete" "$(cat "$STUB_RELEASES/v$draft_version")" "draft release published"
+grep -q "release upload v$draft_version" "$STUB_LOG/gh.calls" || fail "draft must receive the bundle"
+grep -q "release edit v$draft_version --draft=false" "$STUB_LOG/gh.calls" \
+  || fail "draft release must be made public"
+ok "draft release uploaded and published"
+
+# --- scenario 16: drift is caught before completing an old release ----------
+echo "scenario: upstream drift blocks an incomplete stale release"
+stale="$(new_workspace stale-incomplete)"
+stale_version="$(manifest_version "$stale/ws")"
+export STUB_LATEST_VERSION="$stale_version"
+export STUB_UPSTREAM_TAG=9.9.9
+rm -f "$STUB_RELEASES/v$stale_version"
+: > "$STUB_LOG/gh.calls"
+if ( cd "$stale/ws" && bash scripts/actions/auto-update.sh ) > "$WORK/last.log" 2>&1; then
+  fail "upstream drift must fail before publishing the stale pinned version"
+fi
+grep -q 'did not pick the release up' "$WORK/last.log" || fail "the drift guard must explain the miss"
+assert_eq "" "$(remote_tag_list "$stale")" "drift must not create a stale tag"
+released "v$stale_version" && fail "drift must not publish a stale release"
+ok "drift guard also protects incomplete-release recovery"
+
+# --- scenario 17: the updater refuses a manual run from another ref ---------
+echo "scenario: a manual updater run from another branch cannot overwrite main"
+export STUB_LATEST_VERSION="$keepalive_version"
+export STUB_UPSTREAM_TAG="$keepalive_version"
+keepalive_commits="$(remote_commits "$keepalive")"
+if ( cd "$keepalive/ws" && GITHUB_EVENT_NAME=workflow_dispatch GITHUB_REF=refs/heads/evil \
+    bash scripts/actions/auto-update.sh ) > "$WORK/last.log" 2>&1; then
+  fail "the updater must refuse to run from a non-main ref"
+fi
+grep -q 'main' "$WORK/last.log" || fail "the refusal must explain that main is required"
+assert_eq "$keepalive_commits" "$(remote_commits "$keepalive")" "wrong-ref run must not push to main"
+ok "manual runs are restricted to main"
+
+# --- scenario 18: the tag publisher refuses branch/non-version refs ----------
+echo "scenario: the release publisher refuses branch and non-version refs"
+for ref in refs/heads/main refs/tags/main; do
+  : > "$STUB_LOG/gh.calls"
+  if ( cd "$root/ws" && GITHUB_REF="$ref" bash scripts/build/publish-release.sh io.filen.desktop.flatpak ) \
+      > "$WORK/last.log" 2>&1; then
+    fail "the release publisher must refuse $ref"
+  fi
+  grep -q 'release create' "$STUB_LOG/gh.calls" && fail "$ref must never become a release"
+  released main && fail "no release named main may be created"
+done
+ok "release publishing is restricted to version tags"
 
 echo "PASS: the release pipeline survives replayed history, retries and dry runs"

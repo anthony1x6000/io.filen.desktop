@@ -17,6 +17,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 STUBS="$WORK/stubs"
 export STUB_LOG="$WORK/log"
+export GITHUB_REPOSITORY="anthony1x6000/io.filen.desktop"
 mkdir -p "$STUBS" "$STUB_LOG"
 : > "$STUB_LOG/gh.calls"
 
@@ -28,30 +29,120 @@ cat > "$STUBS/gh" <<'STUB'
 set -euo pipefail
 printf '%s\n' "$*" >> "$STUB_LOG/gh.calls"
 
+emit() { # $1 json -> applies the --jq expression the caller asked for
+  local expr="" prev="" arg
+  for arg in "$@"; do
+    [[ "$prev" == "--jq" ]] && expr="$arg"
+    prev="$arg"
+  done
+  if [[ -n "$expr" ]]; then
+    printf '%s' "$1" | jq -r "$expr"
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
 case "${1:-} ${2:-}" in
   "pr review")
     [[ "${STUB_APPROVE:-ok}" == "ok" ]] || { echo "approve refused" >&2; exit 1; }
     ;;
-  "pr checks")
-    watch=0
-    for arg in "$@"; do
-      [[ "$arg" == "--watch" ]] && watch=1
-    done
-    if [[ "${STUB_CHECKS:-present}" == "missing" ]]; then
-      echo "no checks reported on the 'dependabot/github_actions/github-actions' branch" >&2
+  "pr view")
+    views=$(cat "$STUB_LOG/pr-views" 2>/dev/null || echo 0)
+    views=$((views + 1))
+    printf '%s\n' "$views" > "$STUB_LOG/pr-views"
+    if [[ "$*" == *"--json state"* ]]; then
+      state=OPEN
+      [[ -f "$STUB_LOG/merged" ]] && state=MERGED
+      emit '{"state":"'"$state"'"}' "$@"
+      exit 0
+    fi
+    sha=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+    if [[ "${STUB_HEAD_CHANGED:-0}" == 1 && "$views" -gt 1 ]]; then
+      sha=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+    fi
+    emit '{"headRefOid":"'"$sha"'"}' "$@"
+    ;;
+  "api "*)
+    api_calls=$(cat "$STUB_LOG/api-calls" 2>/dev/null || echo 0)
+    api_calls=$((api_calls + 1))
+    printf '%s\n' "$api_calls" > "$STUB_LOG/api-calls"
+    if [[ "${STUB_API_FAILS:-0}" == 1 && "$api_calls" == 1 ]]; then
+      echo "transient API failure" >&2
       exit 1
     fi
-    if [[ "$watch" == 1 ]]; then
-      if [[ "${STUB_CHECKS:-present}" == "failing" ]]; then
-        echo "X  Build & Validate Flatpak  8m  1 failing check"
-        exit 1
-      fi
-      echo "Build & Validate Flatpak  pass"
+    case "$2" in
+      *"/check-runs")
+        polls=$(cat "$STUB_LOG/polls" 2>/dev/null || echo 0)
+        polls=$((polls + 1))
+        printf '%s\n' "$polls" > "$STUB_LOG/polls"
+        self='{"name":"Auto-merge Dependabot PRs","status":"in_progress","conclusion":null}'
+        success='{"name":"Build & Validate Flatpak","status":"completed","conclusion":"success","details_url":"https://github.com/anthony1x6000/io.filen.desktop/actions/runs/777"}'
+        failure='{"name":"Build & Validate Flatpak","status":"completed","conclusion":"failure","details_url":"https://github.com/anthony1x6000/io.filen.desktop/actions/runs/777"}'
+        pending_check='{"name":"Build & Validate Flatpak","status":"in_progress","conclusion":null}'
+        case "${STUB_CHECKS:-present}" in
+          missing) runs="[$self]" ;;
+          failing) runs="[$failure,$self]" ;;
+          transient)
+            if [[ -f "$STUB_LOG/reran" ]]; then
+              runs="[$success,$self]"
+            else
+              runs="[$failure,$self]"
+            fi
+            ;;
+          pending)
+            if [[ "$polls" == 1 ]]; then
+              runs="[$pending_check,$self]"
+            else
+              runs="[$success,$self]"
+            fi
+            ;;
+          *) runs="[$success,$self]" ;;
+        esac
+        emit '{"total_count":2,"check_runs":'"$runs"'}' "$@"
+        ;;
+    esac
+    ;;
+  "run view")
+    attempt=1
+    [[ -f "$STUB_LOG/reran" ]] && attempt=2
+    if [[ "$*" == *"--json status,attempt"* ]]; then
+      printf '%s\n' '{"status":"completed","attempt":'"$attempt"'}'
     else
-      printf '2\n'
+      printf '%s\n' "$attempt"
     fi
     ;;
+  "run rerun")
+    reruns=$(cat "$STUB_LOG/rerun-attempts" 2>/dev/null || echo 0)
+    reruns=$((reruns + 1))
+    printf '%s\n' "$reruns" > "$STUB_LOG/rerun-attempts"
+    : > "$STUB_LOG/reran"
+    if [[ "${STUB_RERUN_ACCEPTED_THEN_FAIL:-0}" == 1 && "$reruns" == 1 ]]; then
+      echo "accepted but response lost" >&2
+      exit 1
+    fi
+    ;;
+  "run watch")
+    [[ "${STUB_RERUN_RESULT:-success}" == "success" ]] || exit 1
+    ;;
+  "pr checks")
+    # Real gh exits 8 while any check is pending, including this workflow's
+    # own check. A script that uses this command can never see all-green.
+    printf '2\n'
+    exit 8
+    ;;
   "pr merge")
+    merges=$(cat "$STUB_LOG/merge-attempts" 2>/dev/null || echo 0)
+    merges=$((merges + 1))
+    printf '%s\n' "$merges" > "$STUB_LOG/merge-attempts"
+    if [[ "${STUB_MERGE_ACCEPTED_THEN_FAIL:-0}" == 1 && "$merges" == 1 ]]; then
+      printf '%s\n' "$*" > "$STUB_LOG/merged"
+      echo "accepted but response lost" >&2
+      exit 1
+    fi
+    if (( merges <= ${STUB_MERGE_FAILS:-0} )); then
+      echo "transient merge failure" >&2
+      exit 1
+    fi
     printf '%s\n' "$*" > "$STUB_LOG/merged"
     ;;
 esac
@@ -62,36 +153,47 @@ chmod +x "$STUBS/gh"
 export PATH="$STUBS:$PATH"
 
 PR_URL="https://github.com/anthony1x6000/io.filen.desktop/pull/42"
+OLD_SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
 run_script() { # env... -> runs the real script against the stubs
-  ( CHECKS_WAIT_ATTEMPTS=2 POLL_SECONDS=0 env "$@" \
+  ( CHECKS_WAIT_ATTEMPTS=2 POLL_SECONDS=0 GH_RETRY_ATTEMPTS=2 GH_RETRY_SECONDS=0 env "$@" \
       bash "$REPO_ROOT/scripts/actions/auto-merge-dependabot.sh" "$PR_URL" ) \
     > "$WORK/out.log" 2>&1
 }
 
-# --- scenario 1: green checks, the PR is merged ---------------------------
-echo "scenario: green checks merge the PR"
-: > "$STUB_LOG/gh.calls"
-rm -f "$STUB_LOG/merged"
+reset_state() {
+  : > "$STUB_LOG/gh.calls"
+  rm -f "$STUB_LOG/merged" "$STUB_LOG/pr-views" "$STUB_LOG/polls" \
+        "$STUB_LOG/api-calls" "$STUB_LOG/reran" "$STUB_LOG/rerun-attempts" \
+        "$STUB_LOG/merge-attempts"
+}
+
+# --- scenario 1: green checks merge, without waiting on this workflow -------
+echo "scenario: green checks merge while the auto-merge check is still running"
+reset_state
 run_script || { cat "$WORK/out.log" >&2; fail "green checks must merge the PR"; }
 grep -q '^pr review --approve' "$STUB_LOG/gh.calls" || fail "the PR should be approved first"
-grep -q '^pr merge .*--rebase --delete-branch' "$STUB_LOG/gh.calls" \
-  || { cat "$WORK/out.log" >&2; fail "the merge must be a rebase merge that deletes the branch"; }
+grep -q "/commits/$OLD_SHA/check-runs" "$STUB_LOG/gh.calls" \
+  || { cat "$WORK/out.log" >&2; fail "checks must be read without waiting on this workflow itself"; }
+grep -q "^pr merge .*--match-head-commit $OLD_SHA.*--rebase --delete-branch" "$STUB_LOG/gh.calls" \
+  || { cat "$WORK/out.log" >&2; fail "the tested head must be pinned when merging"; }
 grep -q -- '--auto' "$STUB_LOG/gh.calls" && fail "auto-merge is unavailable without branch protection"
-ok "green checks merged with --rebase --delete-branch"
+ok "green checks merged with the tested SHA pinned"
 
 # --- scenario 2: a failing check blocks the merge -------------------------
 echo "scenario: a failing check keeps the PR open"
-: > "$STUB_LOG/gh.calls"
-if run_script STUB_CHECKS=failing; then
+reset_state
+if run_script STUB_CHECKS=failing STUB_RERUN_RESULT=failure; then
   fail "a failing check must not be merged"
 fi
 grep -q '^pr merge' "$STUB_LOG/gh.calls" && fail "nothing may be merged while a check fails"
-ok "failing check blocked the merge"
+grep -q '^run rerun 777 --failed$' "$STUB_LOG/gh.calls" \
+  || { cat "$WORK/out.log" >&2; fail "a failed build gets one automated rerun before terminal failure"; }
+ok "failing check was retried once and then blocked the merge"
 
 # --- scenario 3: no checks ever appear ------------------------------------
 echo "scenario: a PR without checks does not hang forever"
-: > "$STUB_LOG/gh.calls"
+reset_state
 if run_script STUB_CHECKS=missing; then
   fail "a PR that never reports checks must not be merged"
 fi
@@ -102,9 +204,79 @@ ok "missing checks failed the run instead of merging blind"
 
 # --- scenario 4: an approval refusal does not block the merge -------------
 echo "scenario: an approval GitHub refuses does not stop the merge"
-: > "$STUB_LOG/gh.calls"
+reset_state
 run_script STUB_APPROVE=refused || { cat "$WORK/out.log" >&2; fail "a refused approval must not block the merge"; }
 grep -q '^pr merge' "$STUB_LOG/gh.calls" || fail "the merge must still happen"
 ok "refused approval tolerated"
+
+# --- scenario 5: pending build checks are polled until they finish ---------
+echo "scenario: pending build checks are polled instead of treated as missing"
+reset_state
+run_script STUB_CHECKS=pending || { cat "$WORK/out.log" >&2; fail "pending checks must be waited for"; }
+[[ "$(cat "$STUB_LOG/polls")" -ge 2 ]] || fail "pending checks must be polled again"
+grep -q '^pr merge' "$STUB_LOG/gh.calls" || fail "the PR must merge after the checks finish"
+ok "pending checks were polled to completion"
+
+# --- scenario 6: a new head after the checks is not merged untested --------
+echo "scenario: a changed head is left for its own synchronize run"
+reset_state
+if run_script STUB_HEAD_CHANGED=1; then
+  fail "a changed head must not merge the previously tested commit"
+fi
+grep -q '^pr merge' "$STUB_LOG/gh.calls" && fail "the untested head must not be merged"
+grep -qi 'head' "$WORK/out.log" || { cat "$WORK/out.log" >&2; fail "the failure must explain the head change"; }
+ok "changed head deferred to the new workflow run"
+
+# --- scenario 7: a transient failed build is rerun and recovered ------------
+echo "scenario: a transient build failure is rerun once and then merged"
+reset_state
+run_script STUB_CHECKS=transient || { cat "$WORK/out.log" >&2; fail "a transient failure must recover without a human"; }
+grep -q '^run rerun 777 --failed$' "$STUB_LOG/gh.calls" || fail "failed build was not rerun"
+grep -q '^run watch 777' "$STUB_LOG/gh.calls" || fail "the rerun must be watched"
+grep -q '^pr merge' "$STUB_LOG/gh.calls" || fail "PR must merge after the rerun goes green"
+ok "transient build failure recovered automatically"
+
+# --- scenario 8: a transient API error is retried ---------------------------
+echo "scenario: a transient check API error is retried"
+reset_state
+run_script STUB_API_FAILS=1 || { cat "$WORK/out.log" >&2; fail "a transient API error must be retried"; }
+[[ "$(cat "$STUB_LOG/api-calls")" -ge 2 ]] || fail "check API was not retried"
+grep -q '^pr merge' "$STUB_LOG/gh.calls" || fail "PR must merge after the API recovers"
+ok "transient API failure retried and recovered"
+
+# --- scenario 9: a rerun on the final poll cannot bypass a green check -------
+echo "scenario: a final-attempt rerun still requires a green check before merge"
+reset_state
+if run_script STUB_CHECKS=transient CHECKS_WAIT_ATTEMPTS=1; then
+  fail "a rerun must not exhaust the poll budget and then merge without green checks"
+fi
+grep -q '^pr merge' "$STUB_LOG/gh.calls" && fail "no merge is allowed without an observed green check"
+ok "final-attempt rerun did not bypass the green-check requirement"
+
+# --- scenario 10: a transient final merge error is retried statefully -------
+echo "scenario: a transient merge error is retried after re-reading PR state"
+reset_state
+run_script STUB_MERGE_FAILS=1 || { cat "$WORK/out.log" >&2; fail "a transient merge error must recover"; }
+[[ "$(cat "$STUB_LOG/merge-attempts")" == 2 ]] || fail "unmerged PR must be retried once"
+[[ -f "$STUB_LOG/merged" ]] || fail "PR was not merged after the retry"
+ok "transient final merge recovered"
+
+# --- scenario 11: an accepted merge with a lost response is not repeated ----
+echo "scenario: an accepted merge with a lost response is treated as success"
+reset_state
+run_script STUB_MERGE_ACCEPTED_THEN_FAIL=1 \
+  || { cat "$WORK/out.log" >&2; fail "accepted merge must be recognized"; }
+[[ "$(cat "$STUB_LOG/merge-attempts")" == 1 ]] || fail "accepted merge must not be repeated"
+ok "accepted merge with lost response recognized"
+
+# --- scenario 12: an accepted rerun with a lost response is not repeated -----
+echo "scenario: an accepted rerun with a lost response is watched, not repeated"
+reset_state
+run_script STUB_CHECKS=transient STUB_RERUN_ACCEPTED_THEN_FAIL=1 \
+  || { cat "$WORK/out.log" >&2; fail "accepted rerun must be recognized and watched"; }
+[[ "$(cat "$STUB_LOG/rerun-attempts")" == 1 ]] || fail "accepted rerun must not be posted twice"
+grep -q '^run watch 777' "$STUB_LOG/gh.calls" || fail "accepted rerun must still be watched"
+grep -q '^pr merge' "$STUB_LOG/gh.calls" || fail "PR must merge after the accepted rerun"
+ok "accepted rerun with lost response watched without duplication"
 
 echo "PASS: dependabot PRs merge themselves once their checks are green"

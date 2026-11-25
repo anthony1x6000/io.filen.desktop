@@ -16,7 +16,7 @@ echo "=== Verifying Application Permissions ==="
 flatpak info --show-permissions io.filen.desktop
 
 echo "=== Verifying Application Launch in Sandbox ==="
-flatpak run --command=true io.filen.desktop
+flatpak run --command=test io.filen.desktop -x /app/main/Filen
 
 echo "=== Verifying Clean Uninstallation ==="
 flatpak uninstall -y --user --noninteractive io.filen.desktop

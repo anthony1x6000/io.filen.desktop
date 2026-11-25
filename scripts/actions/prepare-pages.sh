@@ -8,6 +8,13 @@ if [ -f repo.tar.gz ]; then
   tar -xzf repo.tar.gz -C "$SITE_DIR/"
 fi
 
+# The tracked public key is also present on secret-less PR checkouts. Never
+# advertise it for an unsigned repository: clients would reject every update.
+if [[ -f filen-public.gpg && ! -f "$SITE_DIR/repo/summary.sig" ]]; then
+  echo "::error::refusing to advertise a GPG key for an unsigned OSTree repository" >&2
+  exit 1
+fi
+
 if [ -f filen-public.gpg ]; then
   cp filen-public.gpg "$SITE_DIR/"
 fi

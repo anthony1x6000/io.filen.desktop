@@ -14,6 +14,13 @@ GPG_SIGN_BUILD_ARGS=()
 GPG_SIGN_REPO_ARGS=()
 GPG_BUNDLE_ARGS=()
 
+# Pull requests (including Dependabot) have no release secret and may build
+# unsigned. Anything published from main or a release tag must fail closed.
+if [[ -z "${GPG_PRIVATE_KEY:-}" && "${REQUIRE_SIGNING:-0}" != 0 ]]; then
+  echo "::error::release signing is required but GPG_PRIVATE_KEY is missing" >&2
+  exit 1
+fi
+
 if [[ -n "${GPG_PRIVATE_KEY:-}" ]]; then
   echo "=== Configuring GPG Signing Environment ==="
   export GNUPGHOME="${HOME:-/root}/.gnupg"
@@ -49,12 +56,14 @@ EOF
 
   GPG_SIGN_BUILD_ARGS=(--gpg-sign="$GPG_KEY_ID")
   GPG_SIGN_REPO_ARGS=(--gpg-sign="$GPG_KEY_ID")
-fi
 
-if [[ -f filen-public.gpg ]]; then
-  echo "=== Attaching Public GPG Key to Bundle & Repo ==="
-  GPG_BUNDLE_ARGS=(--gpg-keys=filen-public.gpg)
-  GPG_SIGN_REPO_ARGS+=(--gpg-import=filen-public.gpg)
+  # Dependabot and fork PRs do not receive the release signing secret. Only
+  # attach/import a verification key when this build is actually signed.
+  if [[ -f filen-public.gpg ]]; then
+    echo "=== Attaching Public GPG Key to Bundle & Repo ==="
+    GPG_BUNDLE_ARGS=(--gpg-keys=filen-public.gpg)
+    GPG_SIGN_REPO_ARGS+=(--gpg-import=filen-public.gpg)
+  fi
 fi
 
 echo "=== Building Flatpak Application ==="

@@ -8,9 +8,28 @@ DRY_RUN="${AUTO_UPDATE_DRY_RUN:-0}"
 UPSTREAM_REPO="FilenCloudDienste/filen-desktop"
 CI_WORKFLOW="Build & Validate Flatpak"
 CI_WORKFLOW_FILE="build.yml"
+SELF_WORKFLOW_FILE="auto-update-and-release.yml"
 
 tag_exists() { git rev-parse -q --verify "refs/tags/$1" >/dev/null; }
 release_exists() { gh release view "$1" >/dev/null 2>&1; }
+release_complete() {
+  local release
+  release="$(gh release view "$1" --json isDraft,assets 2>/dev/null)" || return 1
+  jq -e '.isDraft == false and any(.assets[]; .name == "io.filen.desktop.flatpak")' \
+    <<<"$release" >/dev/null
+}
+
+# GitHub disables scheduled workflows in public repos after 60 days without
+# repository activity. Re-enabling this workflow during each scheduled run
+# keeps the release checker alive without adding meaningless commits.
+keep_schedule_enabled() {
+  [[ "${GITHUB_EVENT_NAME:-}" == "schedule" ]] || return 0
+  if [[ -z "${GITHUB_REPOSITORY:-}" ]] || ! gh api -X PUT \
+      "repos/$GITHUB_REPOSITORY/actions/workflows/$SELF_WORKFLOW_FILE/enable" >/dev/null; then
+    echo "::error::could not re-enable the daily workflow; the schedule may stop" >&2
+    return 1
+  fi
+}
 
 # Latest upstream tag, without the leading v. Empty when GitHub cannot be
 # reached, which is not fatal: the build below reports its own failures.
@@ -59,6 +78,16 @@ dispatch_and_watch_ci() {
   fi
 }
 
+# A manual run from another ref would push that ref's commit over main.
+if [[ "${GITHUB_EVENT_NAME:-}" == "workflow_dispatch" && "${GITHUB_REF:-}" != "refs/heads/main" ]]; then
+  echo "::error::the auto-updater must run from main" >&2
+  exit 1
+fi
+
+# This must be the first scheduled-run operation: it prevents GitHub's 60-day
+# inactivity rule from disabling the workflow before the next day's check.
+keep_schedule_enabled
+
 # git and FEDC both refuse a repo they consider foreign; the workflow container
 # needs this and it is a no-op once the workspace is already trusted.
 git config --global --add safe.directory "$(pwd)" 2>/dev/null || true
@@ -91,18 +120,24 @@ if [[ -n "$(git status --porcelain "$MANIFEST")" ]]; then
   NEW_VERSION=1
 fi
 
-# A release is only finished once the bump, the tag and the GitHub release all
-# exist. Checking all three lets a run that died part-way be completed instead
-# of reporting "No updates found" forever.
-if [[ "$NEW_VERSION" == 0 ]] && tag_exists "$TAG" && release_exists "$TAG"; then
-  # The data checker is the only thing that notices a newer release upstream.
-  # One that quietly stopped noticing would leave this run reporting "No
-  # updates found" while the Flatpak falls behind, which is how it drifted
-  # before, so compare against upstream directly instead of trusting it.
+# The data checker is the only thing that notices a newer release upstream.
+# Compare directly whenever it made no edit, including interrupted-release
+# recovery, so a checker that silently stopped working cannot publish stale.
+if [[ "$NEW_VERSION" == 0 ]]; then
   UPSTREAM="$(upstream_version)"
   if [[ -n "$UPSTREAM" && "$UPSTREAM" != "$VERSION" ]]; then
     echo "::error::upstream is at v$UPSTREAM but the manifest pins v$VERSION; the data checker did not pick the release up" >&2
     exit 1
+  fi
+fi
+
+# A release is only finished once the bump, the tag, a public release and its
+# bundle all exist. Checking the asset repairs a failed upload or leftover
+# draft instead of reporting "No updates found" forever.
+if [[ "$NEW_VERSION" == 0 ]] && tag_exists "$TAG" && release_complete "$TAG"; then
+  if [[ "$DRY_RUN" != 0 ]]; then
+    echo "=== Dry run: no updates found; nothing published ==="
+    exit 0
   fi
 
   echo "No updates found; re-verifying the build and Pages deploy"
@@ -115,7 +150,7 @@ if [[ "$NEW_VERSION" == 1 ]]; then
 elif ! tag_exists "$TAG"; then
   echo "Manifest already at $VERSION but $TAG is untagged; completing the release"
 else
-  echo "Manifest already at $VERSION but $TAG has no GitHub release; completing the release"
+  echo "Manifest already at $VERSION but $TAG has no complete GitHub release; completing the release"
 fi
 
 echo "=== Updating AppStream Metainfo ==="
@@ -145,7 +180,11 @@ if ! tag_exists "$TAG"; then
   git push origin "$TAG"
 fi
 
-if ! release_exists "$TAG"; then
+if release_exists "$TAG"; then
+  echo "=== Completing GitHub Release $TAG ==="
+  gh release upload "$TAG" "$BUNDLE" --clobber
+  gh release edit "$TAG" --draft=false --title "$TAG"
+else
   echo "=== Publishing GitHub Release $TAG ==="
   gh release create "$TAG" "$BUNDLE" --title "$TAG" --generate-notes
 fi

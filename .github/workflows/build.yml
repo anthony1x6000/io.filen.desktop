@@ -37,6 +37,15 @@ jobs:
       - name: Test Auto-Update Pipeline
         run: bash scripts/test/test-auto-update.sh
 
+      - name: Test Build & Install Contracts
+        run: bash scripts/test/test-build-and-install.sh
+
+      - name: Test Main Head Guard
+        run: bash scripts/test/test-main-head-guard.sh
+
+      - name: Test Workflow Safety
+        run: bash scripts/test/test-workflow-safety.sh
+
       - name: Test Pages Deployment
         run: bash scripts/test/test-deploy-pages.sh
 
@@ -73,6 +82,7 @@ jobs:
         run: bash scripts/build/build-flatpak.sh
         env:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          REQUIRE_SIGNING: ${{ github.event_name != 'pull_request' && '1' || '0' }}
 
       - name: Upload Flatpak Bundle Artifact
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
@@ -160,17 +170,26 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      # Builds run in parallel; only deployment is serialized. Once this older
+      # run reaches the front of the queue, do not overwrite a newer repository.
+      - name: Check Pages Commit Is Current
+        id: current
+        run: bash scripts/actions/check-pages-head.sh
+
       - name: Download OSTree Repository Archive
+        if: steps.current.outputs.deploy == 'true'
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: ostree-repo-x86_64
 
       - name: Prepare GitHub Pages Static Site
+        if: steps.current.outputs.deploy == 'true'
         run: bash scripts/actions/prepare-pages.sh _site
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload Pages Artifact
+        if: steps.current.outputs.deploy == 'true'
         uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
           path: _site/
@@ -180,6 +199,7 @@ jobs:
       # "github-pages"'. This drives the Pages deployment API directly.
       - name: Deploy to GitHub Pages
         id: deployment
+        if: steps.current.outputs.deploy == 'true'
         run: bash scripts/actions/deploy-pages.sh
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

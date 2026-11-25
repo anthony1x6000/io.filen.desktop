@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Exercise the real checker and build without pushing, tagging or releasing'
+        description: 'Exercise the checker and build any update without publishing'
         type: boolean
         default: false
 
@@ -26,6 +26,7 @@ concurrency:
 jobs:
   update-and-release:
     name: Update, Build & Release
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
@@ -46,12 +47,29 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
+          REQUIRE_SIGNING: '1'
           AUTO_UPDATE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
 
-      # Nobody watches the Actions tab here, so a failing pipeline leaves an
-      # issue behind instead of a red run somebody has to notice.
+  # Nobody watches the Actions tab here. A separate lightweight job still runs
+  # when the updater's container or checkout fails before its script exists.
+  report-outcome:
+    name: Report Pipeline Outcome
+    needs: update-and-release
+    if: always() && !inputs.dry_run && needs.update-and-release.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
       - name: Report Pipeline Outcome
-        if: always() && job.status != 'cancelled'
-        run: bash scripts/actions/report-pipeline-outcome.sh "${{ job.status }}"
+        shell: bash
+        # Fetch the reporter from the pinned commit instead of checking out the
+        # repository, so a checkout failure cannot take reporting down too.
+        run: |
+          gh api "repos/$GITHUB_REPOSITORY/contents/scripts/actions/report-pipeline-outcome.sh?ref=$GITHUB_SHA" --jq .content \
+            | base64 --decode \
+            | bash -s -- "${{ needs.update-and-release.result }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          PIPELINE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}

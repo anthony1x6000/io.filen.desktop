@@ -16,7 +16,11 @@ fi
 
 REMOTE_NAME="filen-test"
 GPG_REMOTE_ARGS=(--no-gpg-verify)
-if [[ -f filen-public.gpg ]]; then
+if [[ -f repo/summary.sig ]]; then
+  if [[ ! -f filen-public.gpg ]]; then
+    echo "::error::signed repository is missing filen-public.gpg!"
+    exit 1
+  fi
   GPG_REMOTE_ARGS=(--gpg-import=filen-public.gpg)
 fi
 
@@ -39,7 +43,7 @@ echo "=== Verifying Application Permissions ==="
 flatpak info --show-permissions io.filen.desktop
 
 echo "=== Verifying Application Launch in Sandbox ==="
-flatpak run --command=true io.filen.desktop
+flatpak run --command=test io.filen.desktop -x /app/main/Filen
 
 echo "=== Testing Incremental Pull & Update from Repository ==="
 flatpak update -y --user --noninteractive io.filen.desktop
