@@ -189,4 +189,23 @@ assert_eq "v9.9.9" "$(remote_tag_list "$root")" "missing tag recreated"
 [[ -f "$STUB_RELEASES/v9.9.9" ]] || fail "missing release was never published"
 ok "release recreated from the already-bumped manifest"
 
+# --- scenario 4: tag push fires release.yml after the auto-updater released -
+echo "scenario: release.yml tolerates a release the auto-updater already cut"
+: > "$STUB_LOG/gh.calls"
+: > "$STUB_RELEASES/v9.9.9"
+( cd "$root/ws" && GITHUB_REF=refs/tags/v9.9.9 bash scripts/build/publish-release.sh io.filen.desktop.flatpak ) \
+  > "$WORK/last.log" 2>&1 || { cat "$WORK/last.log" >&2; fail "publish-release.sh must not fail on an existing release"; }
+grep -q 'release create' "$STUB_LOG/gh.calls" && fail "existing release must not be created twice"
+grep -q 'release upload v9.9.9' "$STUB_LOG/gh.calls" || fail "existing release must get the freshly built bundle"
+ok "existing release refreshed rather than duplicated"
+
+# --- scenario 5: tag push with no release yet ------------------------------
+echo "scenario: release.yml publishes when no release exists"
+: > "$STUB_LOG/gh.calls"
+rm -f "$STUB_RELEASES/v9.9.9"
+( cd "$root/ws" && GITHUB_REF=refs/tags/v9.9.9 bash scripts/build/publish-release.sh io.filen.desktop.flatpak ) \
+  > "$WORK/last.log" 2>&1 || { cat "$WORK/last.log" >&2; fail "publish-release.sh must create a missing release"; }
+grep -q 'release create v9.9.9' "$STUB_LOG/gh.calls" || fail "missing release must be published"
+ok "missing release published"
+
 echo "PASS: auto-update.sh packages releases without relying on FEDC's commit"
