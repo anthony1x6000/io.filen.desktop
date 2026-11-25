@@ -22,7 +22,7 @@ if [[ "${PIPELINE_DRY_RUN:-0}" != 0 ]]; then
 fi
 
 open_issue() {
-  gh issue list --state open --limit 100 --json number,title \
+  gh issue list --repo "$GITHUB_REPOSITORY" --state open --limit 100 --json number,title \
     --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty"
 }
 
@@ -31,16 +31,16 @@ issue="$(open_issue)"
 case "$OUTCOME" in
   success)
     if [[ -n "$issue" ]]; then
-      gh issue close "$issue" --comment "Recovered: ${RUN_URL} succeeded."
+      gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Recovered: ${RUN_URL} succeeded."
     else
       echo "Pipeline healthy; no failure issue is open."
     fi
     ;;
   failure|cancelled)
     if [[ -n "$issue" ]]; then
-      gh issue comment "$issue" --body "Still failing: ${RUN_URL}"
+      gh issue comment "$issue" --repo "$GITHUB_REPOSITORY" --body "Still failing: ${RUN_URL}"
     else
-      gh issue create --title "$TITLE" \
+      gh issue create --repo "$GITHUB_REPOSITORY" --title "$TITLE" \
         --body "The daily auto-update run failed: ${RUN_URL}
 
 It stays open until a run succeeds."

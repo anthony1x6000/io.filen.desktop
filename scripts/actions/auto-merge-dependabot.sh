@@ -100,10 +100,46 @@ for attempt in $(seq 1 "$CHECKS_WAIT_ATTEMPTS"); do
       [[ -n "$run_id" ]] || continue
       grep -qx "$run_id" "$RERUN_LOG" && continue
       echo "=== Rerunning failed workflow run $run_id once ==="
-      retry_gh gh run rerun "$run_id" --failed || {
-        echo "::error::could not rerun workflow run $run_id" >&2
+      before_attempt="$(retry_gh gh run view "$run_id" --json attempt --jq .attempt)" || {
+        echo "::error::could not read workflow run $run_id before rerunning" >&2
         exit 1
       }
+      [[ "$before_attempt" =~ ^[0-9]+$ ]] || {
+        echo "::error::could not determine the attempt number for run $run_id" >&2
+        exit 1
+      }
+
+      # The rerun POST is not idempotent. After an ambiguous error, inspect the
+      # run before ever posting again: the first request may have succeeded and
+      # only lost its response.
+      started=0
+      for post_attempt in 1 2; do
+        if gh run rerun "$run_id" --failed; then
+          started=1
+          break
+        fi
+        for check_attempt in $(seq 1 6); do
+          run_info="$(retry_gh gh run view "$run_id" --json status,attempt)" || {
+            echo "::error::could not determine whether run $run_id was rerun" >&2
+            exit 1
+          }
+          status="$(jq -r '.status' <<<"$run_info")"
+          current_attempt="$(jq -r '.attempt' <<<"$run_info")"
+          if [[ "$status" == "queued" || "$status" == "in_progress" ]] \
+              || (( current_attempt > before_attempt )); then
+            started=1
+            break 2
+          fi
+          sleep "$POLL_SECONDS"
+        done
+        # Still completed on the old attempt: no rerun started, so one more
+        # POST is safe. Two ambiguous failures remain terminal.
+      done
+
+      if (( started == 0 )); then
+        echo "::error::could not start a rerun for workflow run $run_id" >&2
+        exit 1
+      fi
       printf '%s\n' "$run_id" >> "$RERUN_LOG"
       retry_gh gh run watch "$run_id" --exit-status --interval 20 || {
         echo "::error::rerun of $run_id failed; leaving $PR_URL for a human" >&2
@@ -148,7 +184,32 @@ if [[ "$current_sha" != "$head_sha" ]]; then
   exit 1
 fi
 
-echo "=== Merging $PR_URL at $head_sha ==="
-gh pr merge "$PR_URL" --match-head-commit "$head_sha" --rebase --delete-branch
+merge_pr() {
+  local attempt state delay="$GH_RETRY_SECONDS"
+  for attempt in $(seq 1 "$GH_RETRY_ATTEMPTS"); do
+    state="$(retry_gh gh pr view "$PR_URL" --json state --jq .state)" || return 1
+    case "$state" in
+      MERGED) return 0 ;;
+      OPEN) ;;
+      *) echo "::error::PR is not mergeable (state: $state)" >&2; return 1 ;;
+    esac
+
+    # Do not blindly retry this non-idempotent request. If the response is
+    # lost, the next iteration re-reads state and recognizes an accepted merge.
+    if gh pr merge "$PR_URL" --match-head-commit "$head_sha" --rebase --delete-branch; then
+      return 0
+    fi
+    if (( attempt < GH_RETRY_ATTEMPTS )); then
+      sleep "$delay"
+      delay=$((delay * 2))
+    fi
+  done
+  return 1
+}
+
+merge_pr || {
+  echo "::error::could not merge $PR_URL after ${GH_RETRY_ATTEMPTS} attempt(s)" >&2
+  exit 1
+}
 
 echo "✓ Dependabot PR merged and its branch deleted"

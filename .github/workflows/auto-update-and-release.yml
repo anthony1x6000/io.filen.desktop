@@ -62,6 +62,7 @@ jobs:
       issues: write
     steps:
       - name: Report Pipeline Outcome
+        shell: bash
         # Fetch the reporter from the pinned commit instead of checking out the
         # repository, so a checkout failure cannot take reporting down too.
         run: |
@@ -70,4 +71,5 @@ jobs:
             | bash -s -- "${{ needs.update-and-release.result }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           PIPELINE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
