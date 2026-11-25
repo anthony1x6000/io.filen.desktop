@@ -1,6 +1,7 @@
 .flatpak-builder/
 build-dir/
 repo/
+_site/
 *.flatpak
 *.deb
 *.tar.*

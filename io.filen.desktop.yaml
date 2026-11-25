@@ -41,11 +41,13 @@ modules:
       - bash install-filen.sh
 
     sources:
+      # Sources land in the build directory by basename, so the build command
+      # below keeps referring to install-filen.sh / filen.sh.
       - type: file
-        path: install-filen.sh
+        path: scripts/build/install-filen.sh
 
       - type: file
-        path: filen.sh
+        path: scripts/launcher/filen.sh
 
       - type: file
         path: io.filen.desktop.desktop
