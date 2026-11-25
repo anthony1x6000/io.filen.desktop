@@ -15,8 +15,15 @@ if not amd64_manifest:
 
 manifest_amd64 = amd64_manifest.group(1).lower()
 
-version_match = re.search(r"v(\d+\.\d+\.\d+)/Filen_linux_amd64\.deb", manifest)
-version = version_match.group(1) if version_match else "3.0.53"
+# The version comes from the release URL the manifest pins, so a manifest that
+# does not name one is an error rather than a reason to check some older
+# release and then blame the checksum.
+version_match = re.search(r"releases/download/v([^/]+)/Filen_linux_amd64\.deb", manifest)
+if not version_match:
+    print("::error::Could not extract the release version from manifest!", file=sys.stderr)
+    sys.exit(1)
+
+version = version_match.group(1)
 
 print(f"=== Verifying Release v{version} Hashes ===")
 amd64_url = f"https://github.com/FilenCloudDienste/filen-desktop/releases/download/v{version}/Filen_linux_amd64.deb.sha256.txt"
