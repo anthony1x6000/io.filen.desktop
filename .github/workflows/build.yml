@@ -43,6 +43,12 @@ jobs:
       - name: Test Checksum Verifier
         run: bash scripts/test/test-verify-checksums.sh
 
+      - name: Test Dependabot Auto-Merge
+        run: bash scripts/test/test-auto-merge-dependabot.sh
+
+      - name: Test Pipeline Failure Reporting
+        run: bash scripts/test/test-report-pipeline-outcome.sh
+
       - name: Verify Upstream Release Checksums
         run: python3 scripts/validate/verify-checksums.py
 

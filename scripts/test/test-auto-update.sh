@@ -96,17 +96,47 @@ fi
 exit 0
 STUB
 
-# --- gh stub: records release publishing ------------------------------------
+# --- gh stub: records releases, CI dispatch and upstream lookups -----------
 cat > "$STUBS/gh" <<'STUB'
 #!/usr/bin/env bash
 set -euo pipefail
 printf '%s\n' "$*" >> "$STUB_LOG/gh.calls"
+
+emit() { # $1 json -> applies the --jq expression the caller asked for
+  local expr="" prev="" arg
+  for arg in "$@"; do
+    [[ "$prev" == "--jq" ]] && expr="$arg"
+    prev="$arg"
+  done
+  if [[ -n "$expr" ]]; then
+    printf '%s' "$1" | jq -r "$expr"
+  else
+    printf '%s\n' "$1"
+  fi
+}
+
+run_id() { cat "$STUB_LOG/last-run-id" 2>/dev/null || echo 1000; }
+
 case "${1:-} ${2:-}" in
   "release view")
     [[ -f "$STUB_RELEASES/${3:-}" ]] || exit 1
     ;;
   "release create"|"release upload")
     : > "$STUB_RELEASES/${3:-}"
+    ;;
+  "workflow run")
+    printf '%s\n' "$(( $(run_id) + 1 ))" > "$STUB_LOG/last-run-id"
+    ;;
+  "run list")
+    emit '[{"databaseId":'"$(run_id)"',"headSha":"'"$(git rev-parse HEAD)"'"}]' "$@"
+    ;;
+  "run watch")
+    [[ "${STUB_CI_CONCLUSION:-success}" == "success" ]] || exit 1
+    ;;
+  "api "*)
+    case "$2" in
+      *releases/latest) [[ -n "${STUB_UPSTREAM_TAG:-}" ]] && printf 'v%s\n' "$STUB_UPSTREAM_TAG" ;;
+    esac
     ;;
 esac
 exit 0
@@ -205,18 +235,26 @@ ok "FEDC runs in --edit-only mode"
 grep -q 'workflow run Build & Validate Flatpak --ref main' "$STUB_LOG/gh.calls" \
   || fail "the build/deploy workflow must be dispatched, or Pages never picks the release up"
 ok "build & Pages deploy dispatched for the released commit"
+grep -q 'run watch' "$STUB_LOG/gh.calls" \
+  || fail "the dispatched run must be watched, or a failed Pages deploy stays invisible"
+ok "dispatched build & Pages deploy watched to completion"
 
 # --- scenario 2: nothing new upstream --------------------------------------
-echo "scenario: no upstream release leaves the repo untouched"
+echo "scenario: no upstream release leaves the repo untouched and re-checks the deploy"
 export STUB_LATEST_VERSION="$(manifest_version "$root/ws")"
+export STUB_UPSTREAM_TAG="$STUB_LATEST_VERSION"
 before_commits="$(remote_commits "$root")"
 : > "$STUB_LOG/gh.calls"
 : > "$STUB_LOG/build.calls"
 run_update "$root/ws" || fail "auto-update.sh must exit cleanly when nothing changed"
 assert_eq "$before_commits" "$(remote_commits "$root")" "no extra commit on rerun"
-assert_eq "" "$(cat "$STUB_LOG/build.calls")" "no wasted flatpak build"
+assert_eq "" "$(cat "$STUB_LOG/build.calls")" "no wasted local flatpak build"
 grep -q 'release create' "$STUB_LOG/gh.calls" && fail "no release must be created"
 ok "no release published"
+grep -q 'No updates found' "$WORK/last.log" || fail "a steady-state run must report no update"
+grep -q 'run watch' "$STUB_LOG/gh.calls" \
+  || fail "a steady-state run must still verify the build and Pages deploy"
+ok "steady state still verifies the build & Pages deploy"
 
 # --- scenario 3: bump landed but tagging/releasing died --------------------
 echo "scenario: run that died before tagging is completed on the next run"
@@ -306,5 +344,37 @@ done
 assert_eq "$replay_commits" "$(remote_commits "$replay_root")" "one commit per release, no duplicates"
 assert_eq "v3.0.52 v3.0.53 v3.0.54 v3.0.55" "$(remote_tag_list "$replay_root" | sort -V | tr '\n' ' ' | sed 's/ $//')" \
   "every replayed version has exactly one tag"
+
+# --- scenario 10: the dispatched build/deploy fails -----------------------
+echo "scenario: a dispatched build that fails fails the daily run"
+ci_root="$(new_workspace ci-failure)"
+export STUB_LATEST_VERSION=6.6.6
+unset STUB_UPSTREAM_TAG
+: > "$STUB_LOG/gh.calls"
+if ( cd "$ci_root/ws" && STUB_CI_CONCLUSION=failure bash scripts/actions/auto-update.sh ) \
+    > "$WORK/last.log" 2>&1; then
+  fail "a failed build/deploy run must fail the daily run"
+fi
+grep -q 'Pages is not serving' "$WORK/last.log" \
+  || fail "the failure must say that Pages is behind the release"
+ok "failed build/deploy fails the daily run"
+
+# --- scenario 11: the data checker silently stops seeing releases ---------
+echo "scenario: upstream is ahead of the manifest but the checker saw nothing"
+drift_root="$(new_workspace drift)"
+drift_version="$(manifest_version "$drift_root/ws")"
+git -C "$drift_root/ws" tag "v$drift_version"
+git -C "$drift_root/ws" push -q origin "v$drift_version"
+: > "$STUB_RELEASES/v$drift_version"
+export STUB_LATEST_VERSION="$drift_version"
+export STUB_UPSTREAM_TAG=9.9.9
+: > "$STUB_LOG/gh.calls"
+if ( cd "$drift_root/ws" && bash scripts/actions/auto-update.sh ) > "$WORK/last.log" 2>&1; then
+  fail "a checker that stopped seeing releases must fail the run"
+fi
+grep -q 'did not pick the release up' "$WORK/last.log" \
+  || fail "the drift guard must say the checker missed the release"
+grep -q 'workflow run' "$STUB_LOG/gh.calls" && fail "a drifted run must not deploy anything"
+ok "silent upstream drift fails the run instead of reporting no update"
 
 echo "PASS: the release pipeline survives replayed history, retries and dry runs"
