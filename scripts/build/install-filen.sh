@@ -12,6 +12,14 @@ elif [ -d usr/lib/filen ]; then
   cp -a usr/lib/filen/* /app/main/
 elif [ -d opt/filen ]; then
   cp -a opt/filen/* /app/main/
+else
+  echo "::error::no supported Filen payload directory found in filen.deb" >&2
+  exit 1
+fi
+
+if [[ ! -x /app/main/Filen ]]; then
+  echo "::error::filen.deb did not provide an executable /app/main/Filen" >&2
+  exit 1
 fi
 
 # Install application icons directly from upstream package (excluding 1024x1024 for Flatpak limits)

@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       dry_run:
-        description: 'Exercise the real checker and build without pushing, tagging or releasing'
+        description: 'Exercise the checker and build any update without publishing'
         type: boolean
         default: false
 
@@ -26,6 +26,7 @@ concurrency:
 jobs:
   update-and-release:
     name: Update, Build & Release
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     container:
       image: ghcr.io/flathub-infra/flatpak-github-actions:gnome-48
@@ -48,10 +49,22 @@ jobs:
           GPG_PRIVATE_KEY: ${{ secrets.GPG_PRIVATE_KEY }}
           AUTO_UPDATE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}
 
-      # Nobody watches the Actions tab here, so a failing pipeline leaves an
-      # issue behind instead of a red run somebody has to notice.
+  # Nobody watches the Actions tab here. A separate lightweight job still runs
+  # when the updater's container or checkout fails before its script exists.
+  report-outcome:
+    name: Report Pipeline Outcome
+    needs: update-and-release
+    if: always() && !inputs.dry_run && needs.update-and-release.result != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
       - name: Report Pipeline Outcome
-        if: always() && job.status != 'cancelled'
-        run: bash scripts/actions/report-pipeline-outcome.sh "${{ job.status }}"
+        run: bash scripts/actions/report-pipeline-outcome.sh "${{ needs.update-and-release.result }}"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PIPELINE_DRY_RUN: ${{ inputs.dry_run && '1' || '0' }}

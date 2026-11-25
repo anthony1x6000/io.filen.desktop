@@ -4,6 +4,11 @@ set -euo pipefail
 TAG="${GITHUB_REF#refs/tags/}"
 BUNDLE_FILE="${1:-io.filen.desktop.flatpak}"
 
+if [[ ! "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
+  echo "::error::GITHUB_REF must name a version tag such as refs/tags/v3.0.55" >&2
+  exit 1
+fi
+
 echo "=== Publishing GitHub Release $TAG ==="
 if gh release view "$TAG" >/dev/null 2>&1; then
   # The scheduled auto-update already cut this tag's release, or a previous

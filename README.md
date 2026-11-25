@@ -72,9 +72,10 @@ Nothing in this repository needs a maintainer at the keyboard:
 - Every day a workflow checks the [upstream releases](https://github.com/FilenCloudDienste/filen-desktop/releases). When there is a new one it bumps the manifest, builds, publishes the release and waits for GitHub Pages to serve it, so `flatpak update` picks it up.
 - Each scheduled run re-enables itself through GitHub's API, so an idle public repository cannot have its daily schedule switched off after 60 days.
 - On a day without a release it still rebuilds and redeploys, so a break in the chain (upstream actions, the Flathub image, Pages) shows up within a day instead of at the next release.
-- If the checker ever stops seeing releases, the run fails instead of reporting "no updates" forever.
-- Dependabot PRs merge themselves once their checks pass.
-- A failing run opens an issue in this repository and keeps commenting on it until a run succeeds, which closes it.
+- If the checker ever stops seeing releases, the run fails instead of reporting "no updates" forever. Interrupted releases are completed too: a missing bundle or draft is repaired before the run reports success.
+- Dependabot PRs merge themselves once their checks pass. Their secret-less builds are left unsigned, and the install tests verify signatures only when the repository actually has them.
+- An older queued build cannot replace the current release on Pages.
+- A failing run opens an issue in this repository and keeps commenting on it until a run succeeds, which closes it. Reporting runs separately, so even a container or checkout failure leaves a trace.
 
 # AI use and credit
 - Google antigravity was used to create this project.

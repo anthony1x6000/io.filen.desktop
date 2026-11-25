@@ -14,6 +14,13 @@ OUTCOME="${1:?outcome (success, failure or cancelled) is required}"
 TITLE="Auto update & release pipeline is failing"
 RUN_URL="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:?GITHUB_REPOSITORY is required}/actions/runs/${GITHUB_RUN_ID:?GITHUB_RUN_ID is required}"
 
+# A dry run verifies code without asserting that the live pipeline is healthy,
+# so it must not create, comment on, or close the real failure issue.
+if [[ "${PIPELINE_DRY_RUN:-0}" != 0 ]]; then
+  echo "Dry run: leaving the pipeline issue tracker untouched"
+  exit 0
+fi
+
 open_issue() {
   gh issue list --state open --limit 100 --json number,title \
     --jq "[.[] | select(.title == \"$TITLE\")][0].number // empty"
