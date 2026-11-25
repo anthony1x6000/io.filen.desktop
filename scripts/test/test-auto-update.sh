@@ -202,6 +202,9 @@ ok "metainfo.xml documents the new release"
 grep -q -- '--edit-only' "$STUB_LOG/fedc.calls" \
   || fail "FEDC must run with --edit-only, otherwise it commits on its own"
 ok "FEDC runs in --edit-only mode"
+grep -q 'workflow run Build & Validate Flatpak --ref main' "$STUB_LOG/gh.calls" \
+  || fail "the build/deploy workflow must be dispatched, or Pages never picks the release up"
+ok "build & Pages deploy dispatched for the released commit"
 
 # --- scenario 2: nothing new upstream --------------------------------------
 echo "scenario: no upstream release leaves the repo untouched"
