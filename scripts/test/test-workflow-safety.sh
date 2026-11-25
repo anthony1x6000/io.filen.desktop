@@ -28,9 +28,10 @@ grep -Fq "if: always() && !inputs.dry_run && needs.update-and-release.result != 
 report_block="$(awk '/^  report-outcome:/{printing=1} printing' "$AUTO")"
 grep -q 'actions/checkout' <<<"$report_block" \
   && fail "reporting must not depend on a checkout"
-for command in 'gh issue list' 'gh issue create' 'gh issue comment' 'gh issue close'; do
-  grep -Fq "$command" <<<"$report_block" || fail "reporting must run $command inline"
-done
+grep -Fq 'scripts/actions/report-pipeline-outcome.sh?ref=$GITHUB_SHA' <<<"$report_block" \
+  || fail "reporting must fetch the pinned reporter through the GitHub API"
+grep -Fq 'bash -s --' <<<"$report_block" \
+  || fail "reporting must execute the fetched reporter without a checkout"
 grep -Fq '${{ needs.update-and-release.result }}' <<<"$report_block" \
   || fail "reporting must use the updater job result"
 ok "failure reporting survives startup and checkout errors and leaves dry runs alone"
